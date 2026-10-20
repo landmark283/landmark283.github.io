@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Git 使用说明 —— 大学生编程学习版 · 罗格</title>
+<meta name="description" content="从安装配置到分支、回退、.gitignore，写给刚开始用 Git 管学习资料和习题代码的人。">
+<link rel="canonical" href="https://landmark283.github.io/posts/git-guide.html">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+
+<header>
+  <nav class="nav" aria-label="主导航">
+    <a class="brand" href="/">罗格</a>
+    <div class="navlinks">
+      <a href="/">首页</a>
+      <a href="/blog.html" aria-current="page">文章</a>
+      <a href="https://github.com/landmark283">GitHub ↗</a>
+    </div>
+  </nav>
+</header>
+
+<main id="main" class="main">
+  <article class="article">
+    <h1>Git 使用说明 —— 大学生编程学习版</h1>
+    <p class="meta">2026-09-15 · 工具</p>
+<blockquote><p>适用于：上传学习资料、习题代码到 GitHub，管理编程学习过程中的版本变更</p></blockquote>
+<hr>
+<h2 id="目录">目录</h2>
+<ol><li><a href="#1-什么是-git">什么是 Git？</a></li><li><a href="#2-安装与配置">安装与配置</a></li><li><a href="#3-创建仓库">创建仓库</a></li><li><a href="#4-基础操作--日常三连">基础操作 —— 日常三连</a></li><li><a href="#5-远程仓库--连接-github">远程仓库 —— 连接 GitHub</a></li><li><a href="#6-分支管理">分支管理</a></li><li><a href="#7-忽略文件gitignore">忽略文件（.gitignore）</a></li><li><a href="#8-查看历史与回退">查看历史与回退</a></li><li><a href="#9-学习场景实战流程">学习场景实战流程</a></li><li><a href="#10-常见问题与技巧">常见问题与技巧</a></li></ol>
+<hr>
+<h2 id="1-什么是-git">1. 什么是 Git？</h2>
+<p><strong>Git</strong> 是一个<strong>版本控制系统</strong>，就像编程的"后悔药"和"时光机"：</p>
+<ul><li>📸 <strong>拍照存档</strong>：每次修改代码都可以"拍照"（提交/commit），随时回到任意历史版本</li><li>🌿 <strong>分支实验</strong>：可以开"平行宇宙"（分支/branch）尝试新想法，不影响主版本</li><li>☁️ <strong>云端备份</strong>：通过 GitHub 把代码存到云端，换电脑也能继续写</li></ul>
+<h3 id="核心概念先了解">核心概念先了解</h3>
+<div class="table-wrap"><table><thead><tr><th>概念</th><th>通俗理解</th><th>命令</th></tr></thead><tbody><tr><td><strong>工作区</strong></td><td>你正在编辑的文件夹</td><td>—</td></tr><tr><td><strong>暂存区</strong></td><td>待提交的"候车室"</td><td><code>git add</code></td></tr><tr><td><strong>本地仓库</strong></td><td>已经存档的历史记录</td><td><code>git commit</code></td></tr><tr><td><strong>远程仓库</strong></td><td>GitHub 上的云端备份</td><td><code>git push</code></td></tr></tbody></table></div>
+<hr>
+<h2 id="2-安装与配置">2. 安装与配置</h2>
+<h3 id="21-安装-git">2.1 安装 Git</h3>
+<ul><li><strong>Windows</strong>：从 <a href="https://git-scm.com">git-scm.com</a> 下载安装包，一路默认即可</li><li><strong>macOS</strong>：终端执行 <code>brew install git</code> 或安装 Xcode Command Line Tools</li><li><strong>Linux</strong>：<code>sudo apt install git</code>（Debian/Ubuntu）或 <code>sudo dnf install git</code>（Fedora）</li></ul>
+<p>安装后打开终端（Windows 上叫 Git Bash 或 PowerShell），验证：</p>
+<pre><code class="language-bash">git --version
+# 输出类似：git version 2.40.0</code></pre>
+<h3 id="22-配置用户名和邮箱">2.2 配置用户名和邮箱</h3>
+<p><strong>这是第一次使用 Git 必做的配置</strong>——每次提交都会记录你是谁。</p>
+<pre><code class="language-bash">git config --global user.name "你的 GitHub 用户名"
+git config --global user.email "你的 GitHub 邮箱"</code></pre>
+<p>配置 SSH（推荐，免密码推送）：</p>
+<pre><code class="language-bash">ssh-keygen -t ed25519 -C "你的邮箱"
+# 一路回车，生成密钥
+cat ~/.ssh/id_ed25519.pub
+# 复制输出的内容</code></pre>
+<p>复制后去 GitHub → Settings → SSH and GPG keys → New SSH key，粘贴保存。</p>
+<hr>
+<h2 id="3-创建仓库">3. 创建仓库</h2>
+<h3 id="方式一从零开始本地新建">方式一：从零开始（本地新建）</h3>
+<pre><code class="language-bash"># 进入你的学习资料文件夹
+cd D:\lg\note
+
+# 初始化 Git 仓库
+git init</code></pre>
+<h3 id="方式二从-github-克隆已有仓库">方式二：从 GitHub 克隆已有仓库</h3>
+<pre><code class="language-bash">git clone git@github.com:你的用户名/仓库名.git</code></pre>
+<hr>
+<h2 id="4-基础操作--日常三连">4. 基础操作 —— 日常三连</h2>
+<p>这是你<strong>每次写完代码后</strong>的常规操作：</p>
+<pre><code class="language-bash"># 第一步：查看当前状态（养成习惯）
+git status
+
+# 第二步：把改动加入暂存区
+# 添加所有文件（常用）
+git add .
+# 或只添加特定文件
+git add 文件名.py
+git add 文件名.md
+
+# 第三步：提交，记录这次改动
+git commit -m "简要说明改了什么"</code></pre>
+<h3 id="commit-message-写法建议">commit message 写法建议</h3>
+<div class="table-wrap"><table><thead><tr><th>类型</th><th>示例</th></tr></thead><tbody><tr><td>新增</td><td><code>feat: 完成第三章习题</code></td></tr><tr><td>修复</td><td><code>fix: 修改冒泡排序索引越界</code></td></tr><tr><td>学习</td><td><code>learn: 笔记-数组与链表对比</code></td></tr><tr><td>作业</td><td><code>hw: 数据结构作业-栈的实现</code></td></tr></tbody></table></div>
+<hr>
+<h2 id="5-远程仓库--连接-github">5. 远程仓库 —— 连接 GitHub</h2>
+<h3 id="51-在-github-上创建空仓库">5.1 在 GitHub 上创建空仓库</h3>
+<ol><li>登录 GitHub，点击右上角 <code>+</code> → <strong>New repository</strong></li><li>填写仓库名（如 <code>learning-notes</code>）</li><li>选 <strong>Public</strong>（公开）或 <strong>Private</strong>（私有）</li><li><strong>不要勾选</strong> README、.gitignore（你已经有了）</li><li>点击 <strong>Create repository</strong></li></ol>
+<h3 id="52-关联远程仓库并推送">5.2 关联远程仓库并推送</h3>
+<pre><code class="language-bash"># 关联远程仓库（SSH 方式）
+git remote add origin git@github.com:你的用户名/仓库名.git
+
+# 推送代码到 GitHub
+git push -u origin main</code></pre>
+<blockquote><p><code>-u</code> 的意思是建立追踪关系，之后只需 <code>git push</code> 即可。</p></blockquote>
+<h3 id="53-日常推送流程">5.3 日常推送流程</h3>
+<pre><code class="language-bash">git add .
+git commit -m "feat: 完成今日编程练习"
+git push</code></pre>
+<hr>
+<h2 id="6-分支管理">6. 分支管理</h2>
+<h3 id="为什么要用分支">为什么要用分支？</h3>
+<p>你的主分支（<code>main</code>）保持"稳定可运行"，新想法在分支上开发：</p>
+<pre><code class="language-bash"># 查看当前分支
+git branch
+
+# 创建并切换到新分支
+git checkout -b 实验-链表优化
+
+# 切换回主分支
+git checkout main
+
+# 合并分支（把实验成果合并到主分支）
+git merge 实验-链表优化
+
+# 删除已完成的分支
+git branch -d 实验-链表优化</code></pre>
+<h3 id="学习场景分支应用">学习场景：分支应用</h3>
+<pre><code>main ──A────B────D────E──→  (稳定版本)
+         ↘              ↙
+          C────C2────C3     (实验新写法 / 重写某个模块)</code></pre>
+<ul><li>在 <code>main</code> 上写通过的习题</li><li>有重构想法时切分支尝试</li><li>搞砸了？删分支回到 <code>main</code>，毫无影响 ✅</li></ul>
+<hr>
+<h2 id="7-忽略文件gitignore">7. 忽略文件（.gitignore）</h2>
+<p>有些文件不需要传到 GitHub（编译产物、临时文件、隐私配置）：</p>
+<p>在仓库根目录创建 <code>.gitignore</code> 文件：</p>
+<pre><code># 编译产物
+*.exe
+*.o
+*.class
+__pycache__/
+
+# IDE 配置
+.vscode/
+.idea/
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 隐私
+.env
+*.env.local</code></pre>
+<hr>
+<h2 id="8-查看历史与回退">8. 查看历史与回退</h2>
+<pre><code class="language-bash"># 查看提交历史
+git log
+git log --oneline    # 简洁版
+git log --graph      # 图形化查看分支
+
+# 查看某次改了什么
+git show 提交ID前几位
+
+# 回到上一个版本（--soft 保留改动，--hard 丢弃改动）
+git reset --soft HEAD~1     # 撤销最近一次commit，但保留代码改动
+git reset --hard HEAD~1     # 撤销最近一次commit，也丢弃改动
+
+# 如果你 push 了想撤回：
+git revert HEAD            # 安全撤销：生成一个新提交"反做"上一次</code></pre>
+<hr>
+<h2 id="9-学习场景实战流程">9. 学习场景实战流程</h2>
+<h3 id="场景第一次上传学习资料">场景：第一次上传学习资料</h3>
+<pre><code class="language-bash"># 1. 在你的学习文件夹初始化
+cd D:\lg\note
+git init
+
+# 2. 配置（如果还没配过）
+git config --global user.name "你的名字"
+git config --global user.email "你的邮箱"
+
+# 3. 创建 .gitignore
+echo "*.log" &gt;&gt; .gitignore
+echo ".vscode/" &gt;&gt; .gitignore
+
+# 4. 添加并提交
+git add .
+git commit -m "init: 初始化学习笔记仓库"
+
+# 5. GitHub 上建好空仓库后关联
+git remote add origin git@github.com:你的用户名/learning-notes.git
+git push -u origin main</code></pre>
+<h3 id="场景日常写习题">场景：日常写习题</h3>
+<pre><code class="language-bash"># 开始新任务前先同步
+git pull
+
+# 写代码... 写完：
+git status                          # 看看改了哪些
+git diff                             # 看看具体改了什么
+git add .
+git commit -m "hw: 完成动态规划习题3道"
+git push</code></pre>
+<h3 id="场景文件夹分类建议">场景：文件夹分类建议</h3>
+<pre><code>D:\lg\note/
+├── 笔记/              # 课程笔记 (Markdown)
+├── C语言/             # C语言习题代码
+├── Python/            # Python练习
+├── 数据结构/           # 数据结构实现
+└── 项目/              # 大作业/小项目</code></pre>
+<p>你可以每个大科目建一个 GitHub 仓库，也可以都放在一个仓库的不同文件夹里——建议<strong>按科目分仓库</strong>，每个仓库独立版本管理。</p>
+<hr>
+<h2 id="10-常见问题与技巧">10. 常见问题与技巧</h2>
+<h3 id="push-时要求输入密码">❓ push 时要求输入密码？</h3>
+<p>→ 你还没配置 SSH。按上面 <a href="#22-配置用户名和邮箱">2.2 节</a> 配置 SSH 即可。</p>
+<h3 id="不小心提交了敏感信息">❓ 不小心提交了敏感信息？</h3>
+<pre><code class="language-bash">git rm --cached 敏感文件
+# 然后在 .gitignore 里加上它</code></pre>
+<h3 id="想把多个-commit-合并成一个">❓ 想把多个 commit 合并成一个？</h3>
+<pre><code class="language-bash">git rebase -i HEAD~3   # 合并最近3个commit</code></pre>
+<h3 id="想放弃所有未提交的改动">❓ 想放弃所有未提交的改动？</h3>
+<pre><code class="language-bash">git checkout -- .</code></pre>
+<h3 id="养成好习惯">✅ 养成好习惯</h3>
+<ol><li><strong>勤 commit</strong> —— 完成一个小功能就 commit，方便回退</li><li><strong>写清楚 message</strong> —— 一个月后看 <code>git log</code> 就知道当时改了啥</li><li><strong>push 前先 pull</strong> —— 防止多人协作时冲突（自己一个仓库也建议养成习惯）</li><li><strong>不要 push 编译产物</strong> —— 用 <code>.gitignore</code> 挡掉</li></ol>
+<hr>
+<h2 id="11submodule子模块">11.submodule子模块</h2>
+<p>当项目当中还使用了其他项目的代码的时候，我们不应该把所有的代码全部用一个仓库来管理。最简单的操作是直接忽略其他项目代码和依赖的代码，但是如果我们修改了依赖的代码，要怎样才能让别人也知道我们修改了哪些依赖呢？</p>
+<p>在这种场景下就可以使用子模块来解决问题了：子模块会跟踪一个仓库，并且记录这个仓库的git 哈希标记，别人git clone了你的代码之后，再执行</p>
+<pre><code class="language-git">git submodule update --init --recursive</code></pre>
+<p>就可以自动拉取所有需要的子仓库了，并且拉取的版本是正确的。</p>
+<p>普通的嵌套 Git 仓库（gitlink）存在一个问题：主仓库只记录了子仓库的某个 commit ID，但<strong>不知道它的 URL 地址</strong>。其他人克隆主仓库时，子仓库文件夹是空的，无法获取内容[](<a href="https://stackoverflow.com/feeds/question/54897439#1">https://stackoverflow.com/feeds/question/54897439#1</a>)。</p>
+<p>而 Submodule 会在主仓库根目录生成一个 <code>.gitmodules</code> 文件，里面记录了每个子仓库的<strong>路径和 URL</strong>，这样就能实现自动拉取[](<a href="https://github.com/liyijuan/gitSubModule#1">https://github.com/liyijuan/gitSubModule#1</a>)[](<a href="https://guosy.blog.csdn.net/article/details/148177054">https://guosy.blog.csdn.net/article/details/148177054</a>)。</p>
+<h3 id="关键配置步骤">关键配置步骤</h3>
+<h4 id="1-正确添加子仓库">1. 正确添加子仓库</h4>
+<p>在主仓库根目录执行：</p>
+<p>bash</p>
+<p>git submodule add &lt;子仓库的URL&gt; &lt;存放路径&gt;</p>
+<p>例如：</p>
+<p>bash</p>
+<p>git submodule add <a href="https://github.com/user/libfoo.git">https://github.com/user/libfoo.git</a> libs/libfoo</p>
+<p>执行后会产生两个变化[](<a href="https://github.com/liyijuan/gitSubModule#1">https://github.com/liyijuan/gitSubModule#1</a>)：</p>
+<ul><li>在 <code>libs/libfoo</code> 目录下拉取子仓库的代码</li><li>在根目录生成 <code>.gitmodules</code> 文件，记录路径和 URL</li></ul>
+<p>提交并推送主仓库，让子模块配置生效。</p>
+<h4 id="2-提供一键安装的命令">2. 提供“一键安装”的命令</h4>
+<p>针对你的需求，有两种使用场景：</p>
+<p><strong>场景 A：用户首次克隆主仓库（一键获得所有代码）</strong></p>
+<p>直接让用户使用 <code>--recurse-submodules</code> 参数，Git 会自动递归拉取所有子模块[](<a href="https://coreui.io/answers/how-to-clone-repository-with-submodules-in-git/">https://coreui.io/answers/how-to-clone-repository-with-submodules-in-git/</a>)[](<a href="https://cloud.tencent.com.cn/developer/article/2143377?from=15425#1#1">https://cloud.tencent.com.cn/developer/article/2143377?from=15425#1#1</a>)：</p>
+<p>bash</p>
+<p>git clone --recurse-submodules &lt;主仓库URL&gt;</p>
+<p><strong>场景 B：用户已经克隆了主仓库，但子仓库是空的</strong></p>
+<p>提供以下命令给用户，在主仓库根目录执行即可补全所有子仓库[](<a href="https://coreui.io/answers/how-to-clone-repository-with-submodules-in-git/">https://coreui.io/answers/how-to-clone-repository-with-submodules-in-git/</a>)[](<a href="https://guosy.blog.csdn.net/article/details/148177054">https://guosy.blog.csdn.net/article/details/148177054</a>)：</p>
+<p>bash</p>
+<p>git submodule update --init --recursive</p>
+<p>这个命令的作用是：初始化 <code>.gitmodules</code> 中定义的子模块，然后递归拉取所有嵌套的子模块。</p>
+<hr>
+<h1 id="git-worktree-使用总结">Git Worktree 使用总结</h1>
+<h2 id="一核心概念">一、核心概念</h2>
+<p>Git Worktree 让你在<strong>同一个仓库</strong>上拥有<strong>多个工作目录</strong>，每个目录检出不同的分支。</p>
+<ul><li><strong>共享</strong>：<code>.git</code> 对象库、分支引用、提交历史（只有一份）</li><li><strong>独立</strong>：各工作区文件、暂存区、HEAD 位置</li></ul>
+<p>不是物理复制项目，只是多检出几份工作区文件。</p>
+<hr>
+<h2 id="二基本命令">二、基本命令</h2>
+<h3 id="创建-worktree">创建 worktree</h3>
+<p>bash</p>
+<h1 id="创建新分支并检出">创建新分支并检出</h1>
+<p>git worktree add ../project-agent1 -b agent1/feature</p>
+<h1 id="检出已存在的分支">检出已存在的分支</h1>
+<p>git worktree add ../project-agent2 agent2/existing-branch</p>
+<h1 id="基于某次提交创建detached-head常用于只读查看">基于某次提交创建（detached HEAD，常用于只读查看）</h1>
+<p>git worktree add ../project-review HEAD~3</p>
+<h1 id="从远程分支创建并跟踪">从远程分支创建并跟踪</h1>
+<p>git worktree add ../project-fix origin/fix-branch</p>
+<h3 id="查看">查看</h3>
+<p>bash</p>
+<p>git worktree list</p>
+<h1 id="输出">输出：</h1>
+<h1 id="codemyproject----------abc1234-main">/code/myproject          abc1234 [main]</h1>
+<h1 id="codemyproject-agent1---def5678-agent1feature">/code/myproject-agent1   def5678 [agent1/feature]</h1>
+<h1 id="codemyproject-agent2---ghi9012-agent2fix">/code/myproject-agent2   ghi9012 [agent2/fix]</h1>
+<h3 id="删除">删除</h3>
+<p>bash</p>
+<h1 id="规范删除要求工作区干净">规范删除（要求工作区干净）</h1>
+<p>git worktree remove ../project-agent1</p>
+<h1 id="强制删除有未提交改动时">强制删除（有未提交改动时）</h1>
+<p>git worktree remove --force ../project-agent1</p>
+<h1 id="目录已被手动-rm清理残留元数据">目录已被手动 rm，清理残留元数据</h1>
+<p>git worktree prune</p>
+<h3 id="移动">移动</h3>
+<p>bash</p>
+<p>git worktree move ../old-path ../new-path</p>
+<hr>
+<h2 id="三日常工作流">三、日常工作流</h2>
+<p>bash</p>
+<h1 id="1-主仓库创建-worktree">1. 主仓库创建 worktree</h1>
+<p>cd /code/myproject git worktree add ../myproject-agent1 -b agent1/feature git worktree add ../myproject-agent2 -b agent2/fix</p>
+<h1 id="2-在各-worktree-里独立开发">2. 在各 worktree 里独立开发</h1>
+<p>cd ../myproject-agent1</p>
+<h1 id="编辑测试提交">... 编辑、测试、提交 ...</h1>
+<p>git add . git commit -m "feature done" cd ../myproject-agent2</p>
+<h1 id="编辑测试提交-1">... 编辑、测试、提交 ...</h1>
+<p>git commit -am "fix done"</p>
+<h1 id="3-回到主仓库合并">3. 回到主仓库合并</h1>
+<p>cd /code/myproject git merge agent1/feature git merge agent2/fix</p>
+<h1 id="4-清理">4. 清理</h1>
+<p>git worktree remove ../myproject-agent1 git worktree remove ../myproject-agent2</p>
+<hr>
+<h2 id="四共享与隔离对照表">四、共享与隔离对照表</h2>
+<div class="table-wrap"><table><thead><tr><th>内容</th><th>共享？</th><th>说明</th></tr></thead><tbody><tr><td><code>.git</code> 对象库</td><td>✅</td><td>只有一份，提交立即可见</td></tr><tr><td>分支引用</td><td>✅</td><td>一份，所有 worktree 看到相同分支列表</td></tr><tr><td>提交历史</td><td>✅</td><td>在主仓库可 <code>git log agent1/feature</code></td></tr><tr><td>工作区文件</td><td>❌</td><td>各一份，互不影响</td></tr><tr><td>暂存区 index</td><td>❌</td><td>各自独立</td></tr><tr><td>HEAD</td><td>❌</td><td>各指向自己检出的分支</td></tr><tr><td>远程操作</td><td>✅</td><td>push/fetch 影响同一仓库</td></tr></tbody></table></div>
+<hr>
+<h2 id="五关键规则与坑">五、关键规则与坑</h2>
+<p><strong>1. 同一分支不能在两个 worktree 同时检出</strong></p>
+<p>bash</p>
+<p>fatal: 'main' is already checked out at '/code/myproject'</p>
+<p>每个 worktree 必须对应不同分支（或 detached HEAD）。</p>
+<p><strong>2. 提交不会自动同步到其他工作区文件</strong></p>
+<p>Agent 提交后，主工作区文件<strong>不变</strong>。要看到改动必须 <code>merge</code> 或 <code>checkout</code>。</p>
+<ul><li>能查历史：<code>git log agent1/feature</code>、<code>git diff main agent1/feature</code></li><li>要改文件：<code>git merge agent1/feature</code> 或 <code>git checkout agent1/feature</code></li></ul>
+<p><strong>3. 未提交的改动不会跨 worktree 可见</strong></p>
+<p>共享的是已提交对象，不是工作区实时状态。合并前必须先 commit。</p>
+<p><strong>4. 删除 worktree 不会丢提交</strong></p>
+<p>分支和提交留在共享数据库里，可随时重新检出或合并。</p>
+<p><strong>5. 别用 <code>rm -rf</code> 删 worktree 目录</strong></p>
+<p>会留下元数据垃圾，虽可用 <code>git worktree prune</code> 清理，但不如规范操作省事。</p>
+<p><strong>6. submodule 需在每个 worktree 单独初始化</strong></p>
+<p>bash</p>
+<p>git submodule update --init --recursive</p>
+<p><strong>7. 依赖需在每个 worktree 单独安装</strong></p>
+<p><code>node_modules</code>、<code>venv</code> 等不共享，各装各的。</p>
+<hr>
+<h2 id="六多-agent-并行开发场景">六、多 Agent 并行开发场景</h2>
+<p>text</p>
+<p>/code/ ├── myproject/          # 主工作树（main），最终合并处├── agent1-worktree/    # Agent 1 改登录├── agent2-worktree/    # Agent 2 修安全└── agent3-worktree/    # Agent 3 写文档</p>
+<p>每个 Agent 看到完整项目，正常编辑、跑测试、提交。它们改的是各自独立的工作区文件，底层共享同一 Git 历史。最后在主仓库 <code>git merge</code> 逐个合并。</p>
+<p><strong>收益</strong>：不用 stash、不用切分支、不用等别人、改动互不污染。</p>
+<hr>
+<h2 id="七速查表">七、速查表</h2>
+<div class="table-wrap"><table><thead><tr><th>需求</th><th>命令</th></tr></thead><tbody><tr><td>新建 worktree + 新分支</td><td><code>git worktree add &lt;path&gt; -b &lt;branch&gt;</code></td></tr><tr><td>检出已有分支</td><td><code>git worktree add &lt;path&gt; &lt;branch&gt;</code></td></tr><tr><td>列出所有</td><td><code>git worktree list</code></td></tr><tr><td>删除</td><td><code>git worktree remove &lt;path&gt;</code></td></tr><tr><td>强制删除</td><td><code>git worktree remove --force &lt;path&gt;</code></td></tr><tr><td>清理残留</td><td><code>git worktree prune</code></td></tr><tr><td>移动</td><td><code>git worktree move &lt;old&gt; &lt;new&gt;</code></td></tr><tr><td>查看某分支历史</td><td><code>git log &lt;branch&gt;</code>（任意 worktree 中均可）</td></tr><tr><td>合并</td><td><code>git merge &lt;branch&gt;</code>（普通本地分支合并，无需 fetch）</td></tr></tbody></table></div>
+<h2 id="速查卡片">速查卡片</h2>
+<pre><code class="language-bash">git init                    # 初始化仓库
+git clone &lt;地址&gt;             # 克隆远程仓库
+git status                  # 查看状态
+git add .                   # 暂存所有改动
+git commit -m "消息"        # 提交
+git push                    # 推送到 GitHub
+git pull                    # 从 GitHub 拉取最新
+git log --oneline --graph   # 看历史
+git branch                  # 看分支
+git checkout -b &lt;分支名&gt;     # 新建并切换分支
+git merge &lt;分支名&gt;           # 合并分支</code></pre>
+<hr>
+<blockquote><p><strong>最后的建议</strong>：Git 只需要学会上面 10 个命令就能应付 90% 的学习场景。刚开始不用追求理解所有概念，<strong>多用几次就熟了</strong>。遇到记不住的命令，打开这份说明查一下就好。</p>
+<p>💡 提示：可以用 <code>git --help</code> 或 <code>git 命令 --help</code> 在终端查看帮助</p></blockquote>
+
+    <a class="back" href="/blog.html">← 返回文章列表</a>
+  </article>
+</main>
+
+<footer>
+  <div class="foot">
+    <span>© 2026 罗格</span>
+    <a href="mailto:3907571959@qq.com">3907571959@qq.com</a>
+  </div>
+</footer>
+</body>
+</html>

@@ -1,0 +1,1378 @@
+---
+date: 2026-08-25
+slug: stl-notes
+tags: C++
+summary: 自己动手写一遍 vector、list 和迭代器，弄清楚 STL 到底在什么层面上运作。
+---
+
+# 手搓简易STL，理解C++的运作方式
+
+c++是一种用来造轮子的语言。对于新手，可以尝试理解STL，看STL源码，学习c++那些专门为造轮子而设计的语法。
+
+## 丐版Vector
+
+vector的是用来存放数据的动态数组。基于这一点理解，我们就需要让vector做到以下几点：
+
+1. 支持不同的数据类型；
+
+2. 能够自动申请、释放内存，RAII;
+
+3. 能够提供必要的信息，比如元素个数，预留的空间大小等等。
+
+为了支持不同的数据类型，我们需要使用模版元编程。考虑到数组中可能存放一些对象（比如string或者其他自定义的类，结构体），可能会涉及到一些对象的构造和析构，并且需要我们处理好可能出现的异常，保证内存安全，异常安全。
+
+那么我们就不难得出vector的基础代码：
+
+```cpp
+namespace my{
+    template<typename T>
+    class vector{
+    private:
+        T* _data;
+        size_t _size; //实际元素个数
+        size_t _cap; //实际空间大小，_data占用的空间是_cap*一个元素的大小
+        std::allocator<T> _alloc;//便于更精细的操控内存
+    public:
+    //构造函数和析构函数
+    vector(){}
+    ~vector(){}
+}
+```
+
+### Vector的构造函数
+
+*这里先不解释异常处理，后面再说*
+
+为了提升效率，我们需要为构造函数提供两个版本：拷贝构造函数（深拷贝），移动构造函数（接受右值引用，浅拷贝）。此外，再模仿std::vector提供常用的默认构造函数。那么我们就会写出如下的代码。
+
+其中 **_alloc.construct(_data+i,a** 的作用是在数组的对应位置构造元素，对于基本数据类型，其作用相当于于 *_data[i] = a* 但是当T不是基本数据类型的时候，construct就可以调用构造函数，在数组的指定位置构造出一个元素来，这一步不能用 *=* 赋值来实现。
+
+可以看到，移动构造只是把已经存在的数组移动到了另一个vector里面。每个vector应该都对应一块单独的内存空间，所以要把old的_data设置成nullptr，防止多个数组共用一个数组；把old的_size,_camp置0是为了防止访问old的_data。
+
+而拷贝构造就很简单了，就是申请一块大小相同的内存，然后把另一边的内容一个一个复制过去。考虑到对象的赋值操作可能只是复制引用（相当于指针），我们不能使用 = 来进行赋值，就算=重载了，一块未初始化的内存也是不能在上面直接进行常规赋值操作的。如果 = 复制的是引用，新数组和老数组存放的就是相同的对象了，这样还能叫做“拷贝”吗？故使用construct，直接在对应位置调用构造函数构造出新的对象。
+
+举个例子：vector<string> 的本质是数组，它的每个元素大小相等且固定。但我们知道string的大小是不固定的，这不是矛盾了吗？实际上，vector<string>里面存放的只是string对象，string对象中包含了字符串数组地址，字符串长度等相关信息，我们的construct构造string的时候，实际上是单独分配了一个空间给字符串数组，然后把字符串数组的地址存放到string对象里面，而这个string对象就放在vector的数组里面。
+
+```cpp
+        //不要对空数组调用
+        void clear_and_deallocate(){
+            destroy_range(_data,_data+_size);
+            deallocate();
+            _data=nullptr;
+            _size=0;
+            _cap=0;
+        }
+
+
+
+
+
+
+        vector():_data(nullptr),_size(0),_cap(0){}
+        explicit vector(size_t size):_data(_alloc.allocate(size)),_size(size),_cap(size){
+            for(size_t i=0;i<size;++i){
+                _alloc.construct(_data+i,T());
+            }
+        }
+
+        //explicit禁止构造函数或转换函数进行隐式类型转换
+        explicit vector(size_t n,T item):_data(_alloc.allocate(n)),_size(n),_cap(n){
+            for(size_t i=0;i<n;++i){
+                _alloc.construct(_data+i,item);
+            }
+        }
+
+        ~vector(){
+            if(_data!=nullptr)
+            clear_and_deallocate();
+        }
+
+        //拷贝构造
+        vector(const vector& old)
+        : _data(_alloc.allocate(old._cap)), _size(old._size), _cap(old._cap), _alloc(){
+            size_t constructed=0;
+            try{
+                for(size_t i=0;i<_size;++i){
+                    _alloc.construct(_data+i,old._data[i]);
+                    ++constructed;
+                }
+            }catch(...){
+                destroy_range(_data,_data + constructed);
+                _alloc.deallocate(_data, old._cap);
+                throw;
+            }
+        }
+
+        //移动构造
+        vector(vector&& old) noexcept
+        : _data(old._data), _size(old._size), _cap(old._cap), _alloc(){
+            old._data = nullptr;
+            old._size=0;
+            old._cap=0;
+        }
+```
+
+explicit的作用是禁止构造函数或转换函数进行隐式类型转换，如果不加explicit，则可能出现意料之外的情况，容易出bug：
+
+```cpp
+my::vector<int> a=3;
+//没有报错，编译器自动进行类型转换，通过调用构造函数vector(size_t size)
+//把int变成vector
+```
+
+细心的朋友可能已经发现了，拷贝构造中使用了const，这是因为在cpp中，非const对象可以转换为const对象，但是反过来不行。拷贝构造函数如果不加上const，那么以下的代码就无法通过编译：
+
+```cpp
+my::vector<int> b;
+const my::vector<int> a(b);
+```
+
+但是在移动构造函数中我们没有加const，这是因为移动构造要销毁原对象，当然不能是const了。
+
+### Vector的析构操作和内存管理
+
+*这里先不解释异常处理，后面再说*
+
+既然是动态数组，可能经常要分配新内存，可能还会有释放内存的需要。于是我们写了以下几个私有函数。其中最重要的就是reallocate()，作用是重新分配内存，常用于vector扩大的过程中（比如push_back方法）。
+
+```cpp
+private:
+        void destroy_range(T* begin,T* end) noexcept{
+            for (T* p = begin; p != end; ++p) {
+                _alloc.destroy(p);
+            }
+        }
+        //调用之前要确保_data是有效的（即为allocate的返回值）
+        void deallocate() noexcept{
+            _alloc.deallocate(_data,_cap);
+        }
+        //不要对空数组调用
+        void clear_and_deallocate(){
+            destroy_range(_data,_data+_size);
+            deallocate();
+            _data=nullptr;
+            _size=0;
+            _cap=0;
+        }
+        //重新分配大小为cap的内存，这里的cap必须比之前的size要大。
+        void reallocate(size_t cap){
+            //单独处理nullptr的主要原因是：不能对nullptr调用deallocate()
+            if(_data==nullptr){
+                _data = _alloc.allocate(cap);
+                _cap=cap;
+                return;
+            }
+
+
+            T *const new_data = _alloc.allocate(cap);
+            size_t constructed=0;
+            try{
+                for(size_t i=0;i<_size;++i){
+                    _alloc.construct(new_data+i,std::move_if_noexcept(_data[i]));
+                    ++constructed;
+                }
+            }catch(...){
+                destroy_range(new_data,new_data + constructed);
+                _alloc.deallocate(new_data, cap);
+                throw;
+            }
+            destroy_range(_data,_data+_size);
+            deallocate();
+            _data=new_data;
+            _cap=cap;
+        }
+```
+
+这儿的destroy只用来调用对象的析构函数，并不会释放数组的内存。而 _alloc.deallocate(_data,_cap); 则是用来释放数组_data的。原理就是释放从_data开始，_cap个元素这么大的一片区域。为了防止内存泄露，我们要先调用每个对象的析构函数，然后再释放数组的内存。
+
+reallocate(size_t cap)这个函数则涉及到了扩大vector的原理：先创建一个新数组，然后把老数组的每个元素拷贝过来。考虑到老数组被废弃了，我们需要将老数组销毁，否则就会导致内存泄露。既然老数组已经被销毁了，那么我们在构造新数组的时候就没有必要进行深拷贝，比如是存放string的vector，我们只需要把string对象移动过来即可，不需要重新创建string对象，不需要重新创建字符串数组。所以我们在这里使用了移动语义，可以大幅度减小不必要的开销。
+
+### 各类接口
+
+基础已经完成，接下来我们需要像真正的vector一样，提供一些基本的接口。
+
+调用者要能够获取动态数组的大小，占用的空间，并且我们应该让调用者有能力自己控制空间的大小，于是我们需要接口：
+
+```cpp
+void reserve(size_t cap);
+
+void resize(size_t cap);
+
+void shrink_to_fit();
+
+size_t size() const;
+
+size_t capacity() const;
+```
+
+其中函数名后面的const的作用是，告诉编译器，这个函数不会修改对象。
+
+其他的常用函数：
+
+```cpp
+void push_back(T value);
+
+T pop_back();
+```
+
+运算符重载：
+
+```cpp
+T& operator[](size_t i);
+
+const T& operator[](size_t i) const;
+```
+
+迭代器，考虑到Vector的迭代器及其简单，我们只需要这样做就好：
+
+```cpp
+using iterator = T*;
+using const_iterator = const T*;
+```
+
+### 异常处理
+
+所谓异常处理，就是考虑如果有某一句代码执行的时候抛出了异常，我们是否需要处理。异常处理的目标是做到异常安全：出现异常后能够进行栈回溯，保证之前的数据不会丢失，保证程序不会出现严重错误（如内存泄露）。这里以*reallocate()* 为例进行讲解。
+
+如果try语句中construct失败了，那么我们会彻底删除掉新创建的数组，并且抛出异常。并且抛出异常时，我们的_data，_cap，以及_data内的对象等数据没有被改变。这样，我们就实现了异常安全。
+
+```cpp
+        void reallocate(size_t cap){
+            //单独处理nullptr的主要原因是：不能对nullptr调用deallocate()
+            if(_data==nullptr){
+                _data = _alloc.allocate(cap); 
+                //可能会抛出异常，但是抛出异常之后allocate其实失败了，_data依然是nullptr
+                _cap=cap;
+                return;
+            }
+
+
+            T *const new_data = _alloc.allocate(cap);
+            size_t constructed=0;//记录已经构造了多少个，如果出错了能够保证内存不泄露
+            //相比起内存操作的开销，维持一个数字带来的开销可以忽略不计
+            try{
+                for(size_t i=0;i<_size;++i){
+                    _alloc.construct(new_data+i,std::move_if_noexcept(_data[i]));
+                    ++constructed;
+                }
+            }catch(...){
+                destroy_range(new_data,new_data + constructed);
+                _alloc.deallocate(new_data, cap);
+                throw;
+            }
+            destroy_range(_data,_data+_size);
+            deallocate();
+            _data=new_data;
+            _cap=cap;
+        }
+```
+
+可以看到我们没有处理allocate操作的异常。原因很简单，这一步如果出现异常，那么 = 的赋值操作还没有进行，原始数据没有被破坏。分配内存失败了，那么也不存在内存泄露。我们只需要"让异常透传"，交由调用者处理异常。所以哪怕不处理这个异常，我们的reallocate()也已经做到了强异常保证。
+
+*补充知识点：强异常保证：如果操作失败，对象状态**完全不变**（就像没调用过一样）。*
+
+同样的，在push_back中，也要做几乎相同的异常处理。
+
+```cpp
+void push_back(T value){
+            if(_size<_cap){
+                _alloc.construct(_data+_size,std::move_if_noexcept(value));
+                ++_size;
+                return;
+            }
+            // size_t new_cap = (_cap < 3) ? 5 : 2 * _cap;
+            // reallocate(new_cap);
+            // _alloc.construct(this.end(),value);  可能会抛出异常
+            // ++_size;
+            //为什么不这样写：如果construct抛出异常，那么需要回滚，但是老的_data已经被清理了->异常不安全
+            //还要注意分两种情况：1.在一个空的vector上增加内容；2.老vector内存不够了->要搬运老数据，要销毁老数组。
+            //注意要实现异常安全，那么就要考虑如果construct失败了，要怎样处理。
+            size_t new_cap = (_cap < 3) ? 5 : 2 * _cap;//翻倍扩大数组，减少分配内存的次数。
+            T *const new_data = _alloc.allocate(new_cap);
+            if(_data==nullptr){
+                try{
+                    _alloc.construct(new_data,std::move_if_noexcept(value));
+                }catch(...){
+                    _alloc.destroy(new_data);
+                    _alloc.deallocate(new_data, new_cap);
+                    throw;
+                }
+            }
+            else{
+                size_t constructed=0;
+                try{
+                    for(size_t i=0;i<_size;++i){
+                        _alloc.construct(new_data+i,std::move_if_noexcept(_data[i]));
+                        ++constructed;
+                    }
+                    _alloc.construct(new_data+_size,std::move_if_noexcept(value));
+                    ++constructed;
+                }catch(...){
+                    destroy_range(new_data,new_data + constructed);
+                    _alloc.deallocate(new_data, new_cap);
+                    throw;
+                }
+                destroy_range(_data,_data+_size);
+                deallocate();
+            }
+            _data=new_data;
+            _cap=new_cap;
+            ++_size;
+        }
+```
+
+### 完整丐版vector代码
+
+```cpp
+#ifndef MY_VECTOR
+#define MY_VECTOR
+#include<cstddef>
+#include <memory>
+namespace my{
+    template<typename T>
+    class vector{
+    private:
+        T* _data;
+        size_t _size; //实际元素个数
+        size_t _cap; //实际空间大小，_data占用的空间是_cap*一个元素的大小
+        std::allocator<T> _alloc;
+
+        void destroy_range(T* begin,T* end) noexcept{
+            for (T* p = begin; p != end; ++p) {
+                _alloc.destroy(p);
+            }
+        }
+        //调用之前要确保_data是有效的（即为allocate的返回值）
+        void deallocate() noexcept{
+            _alloc.deallocate(_data,_cap);
+        }
+        //不要对空数组调用
+        void clear_and_deallocate(){
+            destroy_range(_data,_data+_size);
+            deallocate();
+            _data=nullptr;
+            _size=0;
+            _cap=0;
+        }
+        void reallocate(size_t cap){
+            if(_data==nullptr){
+                _data = _alloc.allocate(cap);
+                _cap=cap;
+                return;
+            }
+
+
+            T *const new_data = _alloc.allocate(cap);
+            size_t constructed=0;
+            try{
+                for(size_t i=0;i<_size;++i){
+                    _alloc.construct(new_data+i,std::move_if_noexcept(_data[i]));
+                    ++constructed;
+                }
+            }catch(...){
+                destroy_range(new_data,new_data + constructed);
+                _alloc.deallocate(new_data, cap);
+                throw;
+            }
+            destroy_range(_data,_data+_size);
+            deallocate();
+            _data=new_data;
+            _cap=cap;
+        }
+
+        public:
+        using iterator = T*;
+        using const_iterator = const T*;
+        vector():_data(nullptr),_size(0),_cap(0){}
+        explicit vector(size_t size):_data(_alloc.allocate(size)),_size(size),_cap(size){
+            for(size_t i=0;i<size;++i){
+                _alloc.construct(_data+i,T());
+            }
+        }
+
+        //explicit禁止构造函数或转换函数进行隐式类型转换
+        explicit vector(size_t n,T item):_data(_alloc.allocate(n)),_size(n),_cap(n){
+            for(size_t i=0;i<n;++i){
+                _alloc.construct(_data+i,item);
+            }
+        }
+
+        ~vector(){
+            if(_data!=nullptr)
+            clear_and_deallocate();
+        }
+
+        //拷贝构造
+        vector(const vector& old)
+        : _data(_alloc.allocate(old._cap)), _size(old._size), _cap(old._cap), _alloc(){
+            size_t constructed=0;
+            try{
+                for(size_t i=0;i<_size;++i){
+                    _alloc.construct(_data+i,old._data[i]);
+                    ++constructed;
+                }
+            }catch(...){
+                destroy_range(_data,_data + constructed);
+                _alloc.deallocate(_data, old._cap);
+                throw;
+            }
+        }
+
+        //移动构造
+        vector(vector&& old) noexcept
+        : _data(old._data), _size(old._size), _cap(old._cap), _alloc(){
+            old._data = nullptr;
+            old._size=0;
+            old._cap=0;
+        }
+
+        //operator=不需要const重载，因为不能给const对象赋值
+        //const int a=42;这里的=表示的是初始化，而不是赋值，相当于const int a(42);
+        vector& operator=(vector&& old){
+            if(this == &old) return *this;
+            destroy_range(_data,_data+_size);
+            deallocate();
+            _data=old._data;
+            _cap=old._cap;
+            _size=old._size;
+            old._data=nullptr;//防止对old调用析构函数时，清空_data
+            old._size=0;
+            old._cap=0;
+            return *this;
+        }
+
+        vector& operator=(const vector& old){
+            if(this == &old) return *this;
+            T* new_data = _alloc.allocate(old._cap);
+            size_t constructed=0;
+            try{
+                for(size_t i=0;i<old._size;++i){
+                    _alloc.construct(new_data+i,std::move_if_noexcept(old._data[i]));
+                    ++constructed;
+                }
+            }catch(...){
+                destroy_range(new_data,new_data + constructed);
+                _alloc.deallocate(new_data, old._cap);
+                throw;
+            }
+
+            destroy_range(_data,_data+_size);
+            deallocate();
+            _data=new_data;
+            _cap=old._cap;
+            _size=old._size;
+            return *this;
+        }
+
+        //以下三个函数不处理异常，异常由调用者去处理。
+        void reserve(size_t cap){
+            if(cap<=_cap) return;
+            reallocate(cap);
+        }
+        void resize(size_t cap){
+            if(cap<=_cap) return;
+            reallocate(cap);
+            const T temp=T();
+            //后面的区域放置空对象，确保可以被访问
+            for(size_t i=_size;i<_cap;++i){
+                _alloc.construct(_data+i,temp);
+            }
+            _size=_cap;
+        }
+        void shrink_to_fit(){
+            _alloc.deallocate(_data+_size,_cap-_size);
+        }
+
+
+        //不做修改的成员函数，应该加一个const修饰，告诉编译器，这个函数不会修改成员。这样，这些函数就可以作用于一个const对象。
+        size_t size(){
+            return _size;
+        }
+        const size_t size() const{
+            return _size;
+        }
+
+        size_t capacity(){
+            return _cap;
+        }
+        const size_t capacity() const{
+            return _cap;
+        }
+        void push_back(T value){
+            if(_size<_cap){
+                _alloc.construct(_data+_size,std::move_if_noexcept(value));
+                ++_size;
+                return;
+            }
+            // size_t new_cap = (_cap < 3) ? 5 : 2 * _cap;
+            // reallocate(new_cap);
+            // _alloc.construct(this.end(),value);  可能会抛出异常
+            // ++_size;
+            //为什么不这样写：如果construct抛出异常，那么需要回滚，但是老的_data已经被清理了->异常不安全
+            //还要注意分两种情况：1.在一个空的vector上增加内容；2.老vector内存不够了->要搬运老数据，要销毁老数组。
+            //注意要实现异常安全，那么就要考虑如果construct失败了，要怎样处理。
+            size_t new_cap = (_cap < 3) ? 5 : 2 * _cap;
+            T *const new_data = _alloc.allocate(new_cap);
+            if(_data==nullptr){
+                try{
+                    _alloc.construct(new_data,std::move_if_noexcept(value));
+                }catch(...){
+                    _alloc.deallocate(new_data, new_cap);
+                    throw;
+                }
+            }
+            else{
+                size_t constructed=0;
+                try{
+                    for(size_t i=0;i<_size;++i){
+                        _alloc.construct(new_data+i,std::move_if_noexcept(_data[i]));
+                        ++constructed;
+                    }
+                    _alloc.construct(new_data+_size,std::move_if_noexcept(value));
+                    ++constructed;
+                }catch(...){
+                    destroy_range(new_data,new_data + constructed);
+                    _alloc.deallocate(new_data, new_cap);
+                    throw;
+                }
+                destroy_range(_data,_data+_size);
+                deallocate();
+            }
+            _data=new_data;
+            _cap=new_cap;
+            ++_size;
+        }
+
+        T pop_back(){
+            if(_size==0) return T();
+            --_size;
+            return _data[_size];
+        }
+
+        //为了使data[i]=a;这样的代码有效，[]必须返回T&，另外，返回的T&引用是可以修改数组的，那么我们就不应该对一个const数组调用这个函数，否则const数组就可以被修改了。
+        T& operator[](size_t i){
+            return _data[i];
+        }
+        // []的const重载，后面加一个const修饰，告诉编译器，这个函数不会修改成员
+        const T& operator[](size_t i) const{
+            return _data[i];
+        }
+
+        T get(size_t i) const{
+            if(i>=_size) return T();
+            return _data[i];
+        }
+        bool empty(){
+            if(_size==0) return true;
+            return false;
+        }
+        const bool empty() const{
+            if(_size==0) return true;
+            return false;
+        }
+
+        iterator begin(){
+            return (_data);
+        }
+        const_iterator begin() const{
+            return (_data);
+        }
+        iterator end(){
+            return (_data+_size);
+        }
+        const_iterator end() const{
+            return (_data+_size);
+        }
+    };
+}
+#endif
+```
+
+---
+
+## 丐版string
+
+string是什么？就是专门用来存放字符的数组。既然如此，那么上面Vector有的东西，string都要有。并且，我们还需要考虑string实际使用的场景，增加一些常用的接口，并且做出相应的优化。
+
+考虑到string经常处理c风格字符串，我们也要处理c风格字符串与string之间相互转换的问题。此外，由于这层原因，我们通常要保证string的最后一个有效字符为'\0'，所以内存管理的时候，cap要时刻大于size。
+
+### 新增接口，新增构造函数
+
+1是构造函数，2到12是成员函数，12之后的是友元
+
+1. string(const char* str);
+
+2. string& operator=(const char* str);
+
+3. const char* c_str()  const noexcept;
+
+4. void append(const string& str);
+
+5. void append(const char* str);
+
+6. size_t find(char c, size_t pos = 0) const noexcept;
+
+7. size_t find(const char* s, size_t pos = 0) const noexcept;
+
+8. string substr(size_t pos = 0, size_t count = npos) const;
+
+9. int compare(const string& other) const noexcept; //返回0则相对，返回-1则小于，返回1则是大于
+
+10. bool operator==(const string& rhs) const noexcept { return compare(rhs) == 0; }
+
+11. bool operator!=(const string& rhs) const noexcept { return compare(rhs) != 0; }
+
+12. bool operator< (const string& rhs) const noexcept { return compare(rhs) <  0; }
+
+13. void swap(string& a, string& b) noexcept;
+
+14. string operator+(const string& lhs, const string& rhs);
+
+15. std::ostream& operator<<(std::ostream& os, const string& s);
+
+增加了c风格字符串和string相互转换的接口，增加了常见的字符串查找，字符串子串，按字典序比较大小的功能。以及可能使用到的其他运算符重载。以上接口是最基本需要的。
+
+### 优化
+
+首先，和在vector当中的考虑一样，我们应该根据需要选择使用浅拷贝还是深拷贝。在可以使用浅拷贝的地方，就不要进行深拷贝了。如此一来，我们就经常需要使用swap。
+
+string虽然是数组，但是里面存放的都是char，不像vector那样可能会存放对象，也就不会涉及到对象的构造（不用调用构造函数）。那么我们在进行拷贝操作的时候，不是通过移动语义去优化，而是通过标准库的<cstring>（当然也可以自己写，但这不是当下的目标）来优化大量的简单赋值操作。在所有的拷贝操作，尽可能使用memcpy。
+
+如果我们实现一个自己的string只做以上那些内容的话，感觉上就是重复了一遍vector的内容，甚至还降低了难度。但是实际上，string通常还有一个优化，叫做**SSO**（Small String Optimization），针对小字符串进行优化：小字符串存放在栈上，不去堆申请内存。
+
+那么接下来，就让我们在string里面加上SSO吧！
+
+### SSO
+
+#### 数据结构union
+
+实现SSO需要用到一种名为union的数据结构。
+
+`union` 是 C++ 中一个**非常特殊**但又**很实用**的数据结构。**是一种特殊的类/结构体，它的所有成员共享同一块内存空间。** 所有成员从**同一个地址**开始，它们**重叠存储**。
+
+```cpp
+union MyUnion {
+    int i;        // 4 字节
+    float f;      // 4 字节
+    char c;       // 1 字节
+    // 三个成员共享同一块 4 字节的内存
+};
+
+int main() {
+    MyUnion u;
+    u.i = 10;          // 写入 int
+    std::cout<<u.i;    // 输出 10
+    std::cout << u.f;  // 读取 float（未定义行为！）
+    return 0;
+}
+```
+
+union和struct一样，可以有类型名称，一个struct是一个完整的对象。访问方式也是一样的。不过union有许多的限制：
+
+| 限制             | 说明                  |
+| -------------- | ------------------- |
+| **不能有虚函数**     | union 不支持多态         |
+| **不能有引用成员**    | 引用需要初始化，union 不支持   |
+| **不能继承**       | union 不能作为基类        |
+| **POD 优先**     | 含非 POD 类型需要自定义构造/析构 |
+| **一次只能激活一个成员** | 读取非活跃成员是 UB         |
+
+C++ 支持匿名 union，成员可以直接访问，如下所示：
+
+```cpp
+struct MyString {
+    union {
+        char buf[16];
+        struct {
+            char* ptr;
+            size_t cap;
+        };
+    };
+
+    size_t size_;
+    bool is_short_;
+
+    void set_short(const char* str) {
+        is_short_ = true;
+        strcpy(buf, str);  // 直接访问 buf，不需要 union 名称
+    }
+
+    void set_long(const char* str) {
+        is_short_ = false;
+        ptr = new char[strlen(str) + 1];  // 直接访问 ptr
+        cap = strlen(str) + 1;
+        strcpy(ptr, str);
+    }
+};
+```
+
+#### string的数据结构
+
+union的作用就是让一块内存能够在不同时间存储不同的内容，从而节省内存空间。让我们考虑一下小字符串优化之后的string，哪些数据不会同时出现。当然是在堆上的数组和栈上的数组，这两个只需要出现一个就可以。栈上的数组大小是固定的，那么capacity就只在分配了堆上数组的情况下有用。于是，我们就有了如下的string数据结构：
+
+```cpp
+class string{
+private:
+    static constexpr size_t SSO_SIZE = 15;
+    union {
+        struct{
+            char* heap_ptr;
+            size_t _cap;
+        };
+        char  buffer[SSO_SIZE+1];
+    };
+    size_t _size;
+    bool heap_allocated; //用来标记是否使用堆数组
+    std::allocator<char> _alloc;
+}
+```
+
+可以看到，这个数据结构与之前的vector有所不同。我们操作内存的逻辑增加了一条：当字符串字符数量小于15（这里不纳入'\0'），无需管理内存，当字符串的大小超出了这个限度，再按照vector的形式去管理堆上的内存。如此一来，我们的很多代码都需要加入新的条件判断，需要大量的修改。
+
+### 实现简单的string
+
+使用 **copy-and-swap** 的方式来构造出我们的string。具体来说，就是先实现好用来拷贝，以及移动string的函数，然后在接口中去调用这些函数。如此我们就可以确保代码可读性的同时，保证代码的运行效率。string本质既然是管理数组的，那么我们首先应该先写好内存分配有关的函数。
+
+如果数组放在栈上，那么数组是固定的，无需内存管理，我们只需要写出与堆内存有关的代码就行。
+
+```cpp
+    //初次构造就直接放堆上
+    void allocate(size_t cap){
+        _heap_ptr = _alloc.allocate(cap);
+        _heap_allocated = true;
+        _cap=cap;
+    }
+
+    // 扩容：分配新内存，拷贝旧数据，释放旧内存
+    void reallocate(size_t cap) {
+        if(_heap_allocated)
+        {
+            char* new_data = _alloc.allocate(cap);
+            if (_heap_ptr) {
+                std::memcpy(new_data, _heap_ptr, _size);
+                _alloc.deallocate(_heap_ptr, _cap);
+            }
+            _heap_ptr = new_data;
+            _cap  = cap;
+            _heap_ptr[_size] = '\0';        // 始终维护 '\0' 结尾
+        }
+        else{
+            char* new_ptr = _alloc.allocate(cap);
+            std::memcpy(new_ptr,_buffer,SSO_SIZE+1);
+            new_ptr[_size]='\0';
+            _heap_ptr=new_ptr;
+            _cap  = cap;
+            _heap_allocated = true;
+        }
+    }
+```
+
+由于我们使用了小字符串数组优化，必须分别考虑原始数据存放在堆上还是栈上，两种情况的拷贝操作是不一样的。如此一来，我们就完成了内存管理。
+
+---
+
+接下来完成构造函数和析构函数，注意，构造的时候必须按照大小进行区分，如果是小数组，那么就不需要在堆上分配数组，直接使用_buffer即可。此外，不要忘记了标注_heap_allocated。
+
+```cpp
+string() noexcept : _size(0),_heap_allocated(false) {
+        _buffer[0]='\0';
+    }
+
+    explicit string(size_t n){
+        if(n<=SSO_SIZE){
+            std::memset(_buffer,'\0',SSO_SIZE+1);
+            _size=n;
+            _heap_allocated=false;
+        }
+        else{
+            allocate(n+1);
+            std::memset(_heap_ptr,'\0',n+1);
+            _size=n;
+        }
+    }
+
+    explicit string(size_t n, char c){
+        if(n<=SSO_SIZE){
+            std::memset(_buffer,c,SSO_SIZE+1);
+            _buffer[n]='\0';
+            _size=n;
+            _heap_allocated=false;
+        }
+        else{
+            allocate(n+1);
+            std::memset(_heap_ptr,c,n);
+            _heap_ptr[n]='\0';
+            _size=n;
+        }
+    }
+```
+
+拷贝构造，还有c风格字符串转string，都是延续刚才的思路，不过多赘述。移动构造的时候要注意，如果对象是在栈上，这里是不能去释放栈上的内存的。移动构造只是把一个对象置空，并不去破坏这个对象，所以不能去释放栈上的内存。
+
+```cpp
+string(const char* str) {
+        size_t len = std::strlen(str);
+        if(len<=SSO_SIZE){
+            std::memcpy(_buffer,str,SSO_SIZE+1);
+            _buffer[len]='\0';
+            _size=len;
+            _heap_allocated=false;
+        }
+        else{
+            allocate(len+1);
+            std::memcpy(_heap_ptr,str,len);
+            _heap_ptr[len]='\0';
+            _size=len;
+        }
+    }
+
+    string(const string& old){
+        if(old._heap_allocated){
+            allocate(old._cap);
+            std::memcpy(_heap_ptr,old._heap_ptr,old._size+1);
+            _size = old._size;
+        }
+        else{
+            std::memcpy(_buffer,old._buffer,SSO_SIZE+1);
+            _size=old._size;
+            _heap_allocated = false;
+        }
+    }
+
+    string(string&& old) noexcept{
+        if(old._heap_allocated){
+            _heap_ptr = old._heap_ptr;
+            _size = old._size;
+            _cap=old._cap;
+            _heap_allocated = true;
+            old._heap_ptr=nullptr;
+            old._size=0;
+            old._cap=0;
+        }
+        else{
+            //注意，这里不需要销毁old，因为本身写的就不是移动，而是拷贝
+            std::memcpy(_buffer,old._buffer,SSO_SIZE+1);
+            _size = old._size;
+            _heap_allocated = false;
+        }
+    }
+
+    ~string() noexcept {
+        if (_heap_allocated) {
+            _alloc.deallocate(_heap_ptr, _cap);
+            _heap_ptr = nullptr;
+        }
+    }
+```
+
+接下来就是非常重要的函数，swap，有了这个函数，我们的 **copy and swap** 就是完全体了，（copy就用构造函数，以及重载的=运算符就可以）。根据交换的两个对象是否是小数组，交换这个行为就需要分成4种。为了写出正确的代码，我们每次交换的时候都先交换好union里面的数据，再交换其他的。
+
+```cpp
+void swap(string& other) noexcept {
+        if(_heap_allocated && other._heap_allocated){
+            std::swap(_heap_ptr, other._heap_ptr);
+            std::swap(_size, other._size);
+            std::swap(_cap,  other._cap);
+        }
+        else if(!_heap_allocated && !other._heap_allocated){
+            char* temp[SSO_SIZE+1];
+            std::memcpy(temp,_buffer,SSO_SIZE);
+            std::memcpy(_buffer,other._buffer,SSO_SIZE);
+            std::memcpy(other._buffer,temp,SSO_SIZE);
+
+            std::swap(_size, other._size);
+        }else if(_heap_allocated && !other._heap_allocated){
+            //先交换union里面的内容
+            char* temp[SSO_SIZE+1];
+            std::memcpy(temp,other._buffer,SSO_SIZE);
+            other._heap_ptr=_heap_ptr;
+            other._cap=_cap;
+            std::memcpy(_buffer,temp,SSO_SIZE);
+
+            //再交换其他内容
+            std::swap(_heap_allocated,other._heap_allocated);
+            std::swap(_size,other._size);
+        }
+        else{
+            char* temp[SSO_SIZE+1];
+            std::memcpy(temp,_buffer,SSO_SIZE);
+            _heap_ptr=other._heap_ptr;
+            _cap=other._cap;
+            std::memcpy(other._buffer,temp,SSO_SIZE);
+
+            //再交换其他内容
+            std::swap(_heap_allocated,other._heap_allocated);
+            std::swap(_size,other._size);
+        }
+    }
+```
+
+剩下的代码就是补全接口了，对于接口，思路和vector是一样的。能移动的就移动，不然就拷贝。内存分配用写好的函数来操作，很快就能写完。
+
+不过我们经常需要拿到字符串数组，所以增加一个函数：
+
+```cpp
+    char* data() noexcept{
+        if(_heap_allocated) return _heap_ptr;
+        else return _buffer;
+    }
+    const char* data()const noexcept{
+        if(_heap_allocated) return _heap_ptr;
+        else return _buffer;
+    }
+```
+
+不再赘述接口怎么写了，很简单。
+
+### 丐版string完整代码
+
+```cpp
+#ifndef MYSTRING
+#define MYSTRING
+
+#include <cstddef>
+#include <cstring>      // memcpy, memcmp, memset, strlen
+#include <memory>
+#include <ostream>
+#include <stdexcept>
+#include <algorithm>    // std::min
+
+namespace my {
+
+class string {
+public:
+    friend void swap(string& a, string& b) noexcept;
+    friend string operator+(const string& lhs, const string& rhs);
+    friend std::ostream& operator<<(std::ostream& os, const string& s);
+private:
+    static constexpr size_t SSO_SIZE = 15;
+    union {
+        struct{
+            char* _heap_ptr;
+            size_t _cap;
+        };
+        char  _buffer[SSO_SIZE+1];
+    };
+    size_t _size;
+    bool _heap_allocated;
+    std::allocator<char> _alloc;
+
+    char* data() noexcept{
+        if(_heap_allocated) return _heap_ptr;
+        else return _buffer;
+    }
+    const char* data()const noexcept{
+        if(_heap_allocated) return _heap_ptr;
+        else return _buffer;
+    }
+
+    //初次构造就直接放堆上
+    void allocate(size_t cap){
+        _heap_ptr = _alloc.allocate(cap);
+        _heap_allocated = true;
+        _cap=cap;
+    }
+
+    // 扩容：分配新内存，拷贝旧数据，释放旧内存
+    void reallocate(size_t cap) {
+        if(_heap_allocated)
+        {
+            char* new_data = _alloc.allocate(cap);
+            if (_heap_ptr) {
+                std::memcpy(new_data, _heap_ptr, _size);
+                _alloc.deallocate(_heap_ptr, _cap);
+            }
+            _heap_ptr = new_data;
+            _cap  = cap;
+            _heap_ptr[_size] = '\0';        // 始终维护 '\0' 结尾
+        }
+        else{
+            char* new_ptr = _alloc.allocate(cap);
+            std::memcpy(new_ptr,_buffer,SSO_SIZE+1);
+            new_ptr[_size]='\0';
+            _heap_ptr=new_ptr;
+            _cap  = cap;
+            _heap_allocated = true;
+        }
+    }
+
+public:
+    // ========== 构造 / 析构 ==========
+
+    string() noexcept : _size(0),_heap_allocated(false) {
+        _buffer[0]='\0';
+    }
+
+    explicit string(size_t n){
+        if(n<=SSO_SIZE){
+            std::memset(_buffer,'\0',SSO_SIZE+1);
+            _size=n;
+            _heap_allocated=false;
+        }
+        else{
+            allocate(n+1);
+            std::memset(_heap_ptr,'\0',n+1);
+            _size=n;
+        }
+    }
+
+    explicit string(size_t n, char c){
+        if(n<=SSO_SIZE){
+            std::memset(_buffer,c,SSO_SIZE+1);
+            _buffer[n]='\0';
+            _size=n;
+            _heap_allocated=false;
+        }
+        else{
+            allocate(n+1);
+            std::memset(_heap_ptr,c,n);
+            _heap_ptr[n]='\0';
+            _size=n;
+        }
+    }
+
+    string(const char* str) {
+        size_t len = std::strlen(str);
+        if(len<=SSO_SIZE){
+            std::memcpy(_buffer,str,SSO_SIZE+1);
+            _buffer[len]='\0';
+            _size=len;
+            _heap_allocated=false;
+        }
+        else{
+            allocate(len+1);
+            std::memcpy(_heap_ptr,str,len);
+            _heap_ptr[len]='\0';
+            _size=len;
+        }
+    }
+
+    string(const string& old){
+        if(old._heap_allocated){
+            allocate(old._cap);
+            std::memcpy(_heap_ptr,old._heap_ptr,old._size+1);
+            _size = old._size;
+        }
+        else{
+            std::memcpy(_buffer,old._buffer,SSO_SIZE+1);
+            _size=old._size;
+            _heap_allocated = false;
+        }
+    }
+
+    string(string&& old) noexcept{
+        if(old._heap_allocated){
+            _heap_ptr = old._heap_ptr;
+            _size = old._size;
+            _cap=old._cap;
+            _heap_allocated = true;
+            old._heap_ptr=nullptr;
+            old._size=0;
+            old._cap=0;
+        }
+        else{
+            //注意，这里不需要销毁old，因为本身写的就不是移动，而是拷贝
+            std::memcpy(_buffer,old._buffer,SSO_SIZE+1);
+            _size = old._size;
+            _heap_allocated = false;
+        }
+    }
+
+    ~string() noexcept {
+        if (_heap_allocated) {
+            _alloc.deallocate(_heap_ptr, _cap);
+            _heap_ptr = nullptr;
+        }
+    }
+
+    // ========== swap ==========
+
+    void swap(string& other) noexcept {
+        if(_heap_allocated && other._heap_allocated){
+            std::swap(_heap_ptr, other._heap_ptr);
+            std::swap(_size, other._size);
+            std::swap(_cap,  other._cap);
+        }
+        else if(!_heap_allocated && !other._heap_allocated){
+            char* temp[SSO_SIZE+1];
+            std::memcpy(temp,_buffer,SSO_SIZE);
+            std::memcpy(_buffer,other._buffer,SSO_SIZE);
+            std::memcpy(other._buffer,temp,SSO_SIZE);
+
+            std::swap(_size, other._size);
+        }else if(_heap_allocated && !other._heap_allocated){
+            //先交换union里面的内容
+            char* temp[SSO_SIZE+1];
+            std::memcpy(temp,other._buffer,SSO_SIZE);
+            other._heap_ptr=_heap_ptr;
+            other._cap=_cap;
+            std::memcpy(_buffer,temp,SSO_SIZE);
+
+            //再交换其他内容
+            std::swap(_heap_allocated,other._heap_allocated);
+            std::swap(_size,other._size);
+        }
+        else{
+            char* temp[SSO_SIZE+1];
+            std::memcpy(temp,_buffer,SSO_SIZE);
+            _heap_ptr=other._heap_ptr;
+            _cap=other._cap;
+            std::memcpy(other._buffer,temp,SSO_SIZE);
+
+            //再交换其他内容
+            std::swap(_heap_allocated,other._heap_allocated);
+            std::swap(_size,other._size);
+        }
+    }
+
+    // ========== 赋值 ==========
+
+    string& operator=(const string& str) {
+        if (this == &str) return *this;
+        string tmp(str);
+        swap(tmp);
+        return *this;
+    }
+
+    string& operator=(string&& str) noexcept {
+        if (this == &str) return *this;
+        if(_heap_allocated){
+            _alloc.deallocate(_heap_ptr,_cap);
+            _cap=0;
+            _heap_ptr=nullptr;
+        }
+        _size=0;
+        swap(str);
+        return *this;
+    }
+
+    string& operator=(const char* str) {
+        string tmp(str);
+        swap(tmp);
+        return *this;
+    }
+
+    // ========== 元素访问 ==========
+
+    char&       operator[](size_t i)       noexcept { return data()[i]; }
+    const char& operator[](size_t i) const noexcept { return data()[i]; }
+
+    char& at(size_t i) {
+        if (i >= _size) throw std::out_of_range("my::string out of range");
+        return data()[i];
+    }
+    const char& at(size_t i) const {
+        if (i >= _size) throw std::out_of_range("my::string out of range");
+        return data()[i];
+    }
+
+    char&       front()       noexcept { return data()[0]; }
+    const char& front() const noexcept { return data()[0]; }
+    char&       back()        noexcept { return data()[_size - 1]; }
+    const char& back() const noexcept  { return data()[_size - 1]; }
+
+    const char* c_str()  const noexcept { return data() ? data() : ""; }
+
+    // ========== 容量 ==========
+
+    size_t size()     const noexcept { return _size; }
+    size_t length()   const noexcept { return _size; }
+    size_t capacity() const noexcept {
+        if(_heap_allocated){
+            return _cap;
+        }
+        return SSO_SIZE+1;
+    }
+    bool   empty()    const noexcept { return _size == 0; }
+
+    // ========== 修改器 ==========
+
+    void reserve(size_t n) {
+        if(n <=SSO_SIZE+1) return;
+        if (_heap_allocated && n <= _cap) return;
+        reallocate(n);
+    }
+
+    void push_back(char val) {
+        if(_size<SSO_SIZE && !_heap_allocated){
+            _buffer[_size]=val;
+            ++_size;
+            _buffer[_size]='\0';
+        }
+        else{
+            if(!_heap_allocated){
+                reallocate(32);
+                _heap_ptr[_size]=val;
+                _size++;
+                _heap_ptr[_size]='\0';
+                return;
+            }
+            if (_size + 1 < _cap) {     // val + '\0'
+                _heap_ptr[_size] = val;
+                ++_size;
+                _heap_ptr[_size] = '\0';
+                return;
+            }
+            size_t new_cap = _cap * 2;
+            if (new_cap < _size + 2) new_cap = _size + 2;
+            reallocate(new_cap);
+            _heap_ptr[_size] = val;
+            ++_size;
+            _heap_ptr[_size] = '\0';
+        }
+    }
+
+    void append(const string& str) {
+        size_t new_size = _size + str._size;
+        if(!_heap_allocated && new_size<SSO_SIZE){
+            std::memcpy(_buffer+_size,str._buffer,str._size);
+            _buffer[new_size]='\0';
+            _size=new_size;
+            return;
+        }
+        if(!_heap_allocated){
+            reallocate(new_size+1);
+            std::memcpy(_heap_ptr+_size,str.data(),str._size);
+            _heap_ptr[new_size]='\0';
+            _size=new_size;
+            return;
+        }
+        if (new_size + 1 > _cap) {
+            size_t new_cap = _cap * 2;
+            if (new_cap < new_size + 1) new_cap = new_size + 1;
+            reallocate(new_cap);
+        }
+        std::memcpy(_heap_ptr + _size, str.data(), str._size);
+        _size = new_size;
+        _heap_ptr[_size] = '\0';
+    }
+
+    void append(const char* str) {
+        // 直接实现避免通过 string(str) 构造临时对象
+        size_t len = std::strlen(str);
+        size_t new_size = _size + len;
+        if(!_heap_allocated && new_size<SSO_SIZE){
+            std::memcpy(_buffer+_size,str,len);
+            _buffer[new_size]='\0';
+            _size=new_size;
+            return;
+        }
+        if(!_heap_allocated){
+            reallocate(new_size+1);
+            std::memcpy(_heap_ptr+_size,str,len);
+            _heap_ptr[new_size]='\0';
+            _size=new_size;
+            return;
+        }
+        if (new_size + 1 > _cap) {
+            size_t new_cap = _cap * 2;
+            if (new_cap < new_size + 1) new_cap = new_size + 1;
+            reallocate(new_cap);
+        }
+        std::memcpy(_heap_ptr + _size, str, len);
+        _size = new_size;
+        _heap_ptr[_size] = '\0';
+    }
+
+    string& operator+=(char c)           { push_back(c); return *this; }
+    string& operator+=(const char* s)    { append(s);    return *this; }
+    string& operator+=(const string& s)  { append(s);    return *this; }
+
+    void clear() noexcept {
+        data()[0]='\0';
+        _size=0;
+    }
+
+    void pop_back() noexcept {
+        if (_size > 0) {
+            --_size;
+            data()[_size]='\0';
+        }
+    }
+
+    // ========== 迭代器 ==========
+
+    using iterator       = char*;
+    using const_iterator = const char*;
+
+    iterator       begin()       noexcept { return data(); }
+    const_iterator begin() const noexcept { return data(); }
+    iterator       end()         noexcept { return data() + _size; }
+    const_iterator end()   const noexcept { return data() + _size; }
+
+    // ========== 查找 ==========
+
+    size_t find(char c, size_t pos = 0) const noexcept {
+        const char* ptr = data();
+        for (size_t i = pos; i < _size; ++i)
+            if (ptr[i] == c) return i;
+        return npos;
+    }
+
+    size_t find(const char* s, size_t pos = 0) const noexcept {
+        size_t len = std::strlen(s);
+        const char* ptr = data();
+        if (len == 0) return pos;
+        if (pos + len > _size) return npos;
+        for (size_t i = pos; i <= _size - len; ++i)
+            if (std::memcmp(ptr + i, s, len) == 0) return i;
+        return npos;
+    }
+
+    // ========== 子串 ==========
+
+    string substr(size_t pos = 0, size_t count = npos) const {
+        if (pos > _size) throw std::out_of_range("my::string substr out of range");
+        size_t real_len = std::min(count, _size - pos);
+        if (real_len == 0) return string();
+        string result(real_len);
+        char* ptr=result.data();
+        std::memcpy(ptr, data() + pos, real_len);
+        return result;
+    }
+
+    // ========== 比较 ==========
+
+    int compare(const string& other) const noexcept {
+        size_t min_len = std::min(_size, other._size);
+        int r = std::memcmp(data(), other.data(), min_len);
+        if (r != 0) return r;
+        if (_size < other._size) return -1;
+        if (_size > other._size) return  1;
+        return 0;
+    }
+
+    bool operator==(const string& rhs) const noexcept { return compare(rhs) == 0; }
+    bool operator!=(const string& rhs) const noexcept { return compare(rhs) != 0; }
+    bool operator< (const string& rhs) const noexcept { return compare(rhs) <  0; }
+
+    static constexpr size_t npos = size_t(-1);
+};
+
+// ========== 自由函数 ==========
+
+void swap(string& a, string& b) noexcept {
+    a.swap(b);
+}
+
+string operator+(const string& lhs, const string& rhs) {
+    string result(lhs.size() + rhs.size());
+    result.clear();
+    result.append(lhs);
+    result.append(rhs);
+    return result;
+}
+
+std::ostream& operator<<(std::ostream& os, const string& s) {
+    if (s.data()) os.write(s.data(), s.size());
+    return os;
+}
+
+}  // namespace my
+
+#endif
+```
+
+## 智能指针
+
+# 

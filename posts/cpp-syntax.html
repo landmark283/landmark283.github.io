@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>C++ 语法记录 · 罗格</title>
+<meta name="description" content="模板、lambda、移动语义这些 C++ 里最容易记混的语法点，按主题整理成一份可以随时翻的笔记。">
+<link rel="canonical" href="https://landmark283.github.io/posts/cpp-syntax.html">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+
+<header>
+  <nav class="nav" aria-label="主导航">
+    <a class="brand" href="/">罗格</a>
+    <div class="navlinks">
+      <a href="/">首页</a>
+      <a href="/blog.html" aria-current="page">文章</a>
+      <a href="https://github.com/landmark283">GitHub ↗</a>
+    </div>
+  </nav>
+</header>
+
+<main id="main" class="main">
+  <article class="article">
+    <h1>C++ 语法记录</h1>
+    <p class="meta">2026-07-13 · C++</p>
+<h3 id="相关模版语法介绍">相关模版语法介绍</h3>
+<h4 id="模板基础语法">模板基础语法</h4>
+<p>函数模版</p>
+<pre><code class="language-cpp">// 基本语法
+template &lt;typename T&gt;
+T max(T a, T b) {
+    return a &gt; b ? a : b;
+}
+// 使用（自动推导）
+int x = max(3, 5);        // T = int
+double y = max(3.14, 2.7); // T = double
+// 也可以显式指定
+int z = max&lt;int&gt;(3, 5.5); // 强制 T = int</code></pre>
+<p>类模版</p>
+<pre><code class="language-cpp">template &lt;typename T&gt;
+class Box {
+private:
+    T value;
+public:
+    Box(T v) : value(v) {}
+    T get() const { return value; }
+};
+// 使用（必须显式指定类型）
+Box&lt;int&gt; box1(42);
+Box&lt;std::string&gt; box2("hello");</code></pre>
+<p>类内部的成员函数也可以是模板：</p>
+<pre><code class="language-cpp">class MyClass {
+public:
+    template &lt;typename T&gt;
+    void print(T value) {
+        std::cout &lt;&lt; value &lt;&lt; std::endl;
+    }
+};
+MyClass obj;
+obj.print(42);        // T = int
+obj.print("hello");   // T = const char*</code></pre>
+<h4 id="参数类型">参数类型</h4>
+<h5 id="类型参数type-parameters">① 类型参数（Type Parameters）</h5>
+<pre><code class="language-cpp">// typename 和 class 完全等价
+template &lt;typename T, class U&gt;  // 两种都可以
+class Pair {
+    T first;
+    U second;
+};</code></pre>
+<h5 id="非类型参数non-type-parameters">② 非类型参数（Non-type Parameters）</h5>
+<p>必须是<strong>编译期常量</strong>（整数、枚举、指针、引用等）：</p>
+<pre><code class="language-cpp">// 固定大小的数组
+template &lt;typename T, int N&gt;
+class Array {
+    T data[N];  // N 必须是编译期常量
+public:
+    int size() const { return N; }
+};
+Array&lt;int, 10&gt; arr;  // N = 10
+std::cout &lt;&lt; arr.size();  // 输出 10
+// 指针作为非类型参数
+template &lt;const char* Name&gt;
+class Logger {
+    void log() { std::cout &lt;&lt; Name &lt;&lt; std::endl; }
+};
+constexpr char name[] = "MyApp";
+Logger&lt;name&gt; logger;  // ✅ 指针必须是常量表达式</code></pre>
+<h5 id="模板模板参数template-template-parameters">③ 模板模板参数（Template Template Parameters）</h5>
+<p>参数本身也是模板：</p>
+<pre><code class="language-cpp">template &lt;typename T, template &lt;typename&gt; class Container&gt;
+class MyClass {
+    Container&lt;T&gt; data;  // Container 是一个模板
+};
+// 使用
+MyClass&lt;int, std::vector&gt; obj;  // Container = vector
+// 注意：std::vector 有两个参数（T, Allocator），需要适配</code></pre>
+<h2 id="模板特化specialization">模板特化（Specialization）</h2>
+<h3 id="全特化full-specialization">① 全特化（Full Specialization）</h3>
+<p>所有参数都指定具体类型：</p>
+<p>cpp</p>
+<p>template &lt;typename T, typename U&gt; class Pair { // 通用版本}; // 全特化：T = int, U = double template &lt;&gt; class Pair&lt;int, double&gt; { // 特殊实现};</p>
+<h3 id="偏特化partial-specialization">② 偏特化（Partial Specialization）</h3>
+<p>部分参数指定，部分保持泛型：</p>
+<p>cpp</p>
+<p>template &lt;typename T&gt; class Pair&lt;T, int&gt; {  // 第二个参数固定为 int // 特化版本}; template &lt;typename T&gt; class Pair&lt;T<em>, T</em>&gt; {  // 两个参数都是指针且类型相同// 指针版本};</p>
+<hr>
+<h2 id="4-函数模板的重载和特化">4. 函数模板的重载和特化</h2>
+<h3 id="函数重载overload">① 函数重载（Overload）</h3>
+<p>函数模板可以重载：</p>
+<p>cpp</p>
+<p>// 通用版本template &lt;typename T&gt; void print(T value) { std::cout &lt;&lt; value &lt;&lt; std::endl; } // 重载：指针版本template &lt;typename T&gt; void print(T<em> ptr) { std::cout &lt;&lt; </em>ptr &lt;&lt; std::endl; } // 重载：具体类型void print(int value) { std::cout &lt;&lt; "int: " &lt;&lt; value &lt;&lt; std::endl; }</p>
+<h3 id="函数模板特化不推荐">② 函数模板特化（不推荐）</h3>
+<p>函数模板也可以全特化，但通常用重载代替：</p>
+<p>cpp</p>
+<p>template &lt;typename T&gt; void func(T t) { /<em> 通用实现 </em>/ } // 全特化（较少用）template &lt;&gt; void func&lt;int&gt;(int t) { /<em> int 特殊处理 </em>/ } // 更好的方式：重载void func(int t) { /<em> int 特殊处理 </em>/ }  // ✅ 更推荐</p>
+<hr>
+<h2 id="5-可变参数模板variadic-templates-c11">5. 可变参数模板（Variadic Templates, C++11）</h2>
+<h3 id="递归展开">① 递归展开</h3>
+<p>cpp</p>
+<p>// 终止函数void print() { std::cout &lt;&lt; std::endl; } // 递归展开template &lt;typename T, typename... Args&gt; void print(T first, Args... rest) { std::cout &lt;&lt; first &lt;&lt; " "; print(rest...);  // 递归调用} // 使用print(1, 3.14, "hello", 'c'); // 输出：1 3.14 hello c</p>
+<h3 id="折叠表达式c17">② 折叠表达式（C++17）</h3>
+<p>更简洁的展开方式：</p>
+<p>cpp</p>
+<p>// C++17 折叠表达式template &lt;typename... Args&gt; void print(Args... args) { (std::cout &lt;&lt; ... &lt;&lt; args) &lt;&lt; std::endl;  // 左折叠// 等价于 ((cout &lt;&lt; arg1) &lt;&lt; arg2) &lt;&lt; ... } // 使用print(1, 2, 3, 4);  // 输出 1234</p>
+<h3 id="获取参数包大小">③ 获取参数包大小</h3>
+<p>cpp</p>
+<p>template &lt;typename... Args&gt; void count_args(Args... args) { std::cout &lt;&lt; "参数个数: " &lt;&lt; sizeof...(args) &lt;&lt; std::endl; std::cout &lt;&lt; "类型个数: " &lt;&lt; sizeof...(Args) &lt;&lt; std::endl; }</p>
+<hr>
+<h2 id="6-高级特性">6. 高级特性</h2>
+<h3 id="sfinaesubstitution-failure-is-not-an-error">① SFINAE（Substitution Failure Is Not An Error）</h3>
+<p>替换失败不是错误，编译器会尝试其他重载：</p>
+<p>cpp</p>
+<p>// 只有当 T 有 value_type 时才会被选择template &lt;typename T&gt; void func(T, typename T::value_type* = nullptr) { std::cout &lt;&lt; "有 value_type" &lt;&lt; std::endl; } void func(...) { std::cout &lt;&lt; "无 value_type" &lt;&lt; std::endl; } struct A { using value_type = int; }; struct B {}; func(A{});  // 输出：有 value_type func(B{});  // 输出：无 value_type</p>
+<h3 id="auto-返回类型推导c14">② <code>auto</code> 返回类型推导（C++14）</h3>
+<p>cpp</p>
+<p>template &lt;typename T, typename U&gt; auto add(T a, U b) { return a + b;  // 返回类型自动推导}</p>
+<h3 id="模板别名alias-template-c11">③ 模板别名（Alias Template, C++11）</h3>
+<p>cpp</p>
+<p>template &lt;typename T&gt; using Vec = std::vector&lt;T, std::allocator&lt;T&gt;&gt;;  // 简化 vector Vec&lt;int&gt; v;  // 等价于 std::vector&lt;int, std::allocator&lt;int&gt;&gt;</p>
+<hr>
+<h2 id="7-c20-新特性">7. C++20 新特性</h2>
+<h3 id="概念concepts">① 概念（Concepts）</h3>
+<p>约束模板参数：</p>
+<p>cpp</p>
+<p>// 定义概念template &lt;typename T&gt; concept Printable = requires(T t) { { t.print() } -&gt; std::same_as&lt;void&gt;; }; // 使用概念约束template &lt;Printable T&gt; void use(T obj) { obj.print(); } // 简写形式void use2(Printable auto obj) { obj.print(); }</p>
+<h3 id="简化函数模板c20">② 简化函数模板（C++20）</h3>
+<p>cpp</p>
+<p>// 等价于 template &lt;typename T&gt; void func(T t) void func(auto t) { // 自动推导类型}</p>
+
+    <a class="back" href="/blog.html">← 返回文章列表</a>
+  </article>
+</main>
+
+<footer>
+  <div class="foot">
+    <span>© 2026 罗格</span>
+    <a href="mailto:3907571959@qq.com">3907571959@qq.com</a>
+  </div>
+</footer>
+</body>
+</html>

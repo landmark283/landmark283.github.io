@@ -112,8 +112,7 @@ MyClass<int, std::vector> obj;  // Container = vector
 
 所有参数都指定具体类型：
 
-cpp
-
+```cpp
 template <typename T, typename U>
 class Pair {
     // 通用版本
@@ -123,13 +122,13 @@ template <>
 class Pair<int, double> {
     // 特殊实现
 };
+```
 
 ### ② 偏特化（Partial Specialization）
 
 部分参数指定，部分保持泛型：
 
-cpp
-
+```cpp
 template <typename T>
 class Pair<T, int> {  // 第二个参数固定为 int
     // 特化版本
@@ -138,6 +137,7 @@ template <typename T>
 class Pair<T*, T*> {  // 两个参数都是指针且类型相同
     // 指针版本
 };
+```
 
 ---
 
@@ -147,8 +147,7 @@ class Pair<T*, T*> {  // 两个参数都是指针且类型相同
 
 函数模板可以重载：
 
-cpp
-
+```cpp
 // 通用版本
 template <typename T>
 void print(T value) {
@@ -163,13 +162,13 @@ void print(T* ptr) {
 void print(int value) {
     std::cout << "int: " << value << std::endl;
 }
+```
 
 ### ② 函数模板特化（不推荐）
 
 函数模板也可以全特化，但通常用重载代替：
 
-cpp
-
+```cpp
 template <typename T>
 void func(T t) { /* 通用实现 */ }
 // 全特化（较少用）
@@ -177,6 +176,7 @@ template <>
 void func<int>(int t) { /* int 特殊处理 */ }
 // 更好的方式：重载
 void func(int t) { /* int 特殊处理 */ }  // ✅ 更推荐
+```
 
 ---
 
@@ -184,8 +184,7 @@ void func(int t) { /* int 特殊处理 */ }  // ✅ 更推荐
 
 ### ① 递归展开
 
-cpp
-
+```cpp
 // 终止函数
 void print() {
     std::cout << std::endl;
@@ -199,13 +198,13 @@ void print(T first, Args... rest) {
 // 使用
 print(1, 3.14, "hello", 'c');
 // 输出：1 3.14 hello c
+```
 
 ### ② 折叠表达式（C++17）
 
 更简洁的展开方式：
 
-cpp
-
+```cpp
 // C++17 折叠表达式
 template <typename... Args>
 void print(Args... args) {
@@ -214,16 +213,17 @@ void print(Args... args) {
 }
 // 使用
 print(1, 2, 3, 4);  // 输出 1234
+```
 
 ### ③ 获取参数包大小
 
-cpp
-
+```cpp
 template <typename... Args>
 void count_args(Args... args) {
     std::cout << "参数个数: " << sizeof...(args) << std::endl;
     std::cout << "类型个数: " << sizeof...(Args) << std::endl;
 }
+```
 
 ---
 
@@ -233,8 +233,7 @@ void count_args(Args... args) {
 
 替换失败不是错误，编译器会尝试其他重载：
 
-cpp
-
+```cpp
 // 只有当 T 有 value_type 时才会被选择
 template <typename T>
 void func(T, typename T::value_type* = nullptr) {
@@ -247,23 +246,24 @@ struct A { using value_type = int; };
 struct B {};
 func(A{});  // 输出：有 value_type
 func(B{});  // 输出：无 value_type
+```
 
 ### ② `auto` 返回类型推导（C++14）
 
-cpp
-
+```cpp
 template <typename T, typename U>
 auto add(T a, U b) {
     return a + b;  // 返回类型自动推导
 }
+```
 
 ### ③ 模板别名（Alias Template, C++11）
 
-cpp
-
+```cpp
 template <typename T>
 using Vec = std::vector<T, std::allocator<T>>;  // 简化 vector
 Vec<int> v;  // 等价于 std::vector<int, std::allocator<int>>
+```
 
 ---
 
@@ -273,8 +273,7 @@ Vec<int> v;  // 等价于 std::vector<int, std::allocator<int>>
 
 约束模板参数：
 
-cpp
-
+```cpp
 // 定义概念
 template <typename T>
 concept Printable = requires(T t) {
@@ -289,12 +288,13 @@ void use(T obj) {
 void use2(Printable auto obj) {
     obj.print();
 }
+```
 
 ### ② 简化函数模板（C++20）
 
-cpp
-
+```cpp
 // 等价于 template <typename T> void func(T t)
 void func(auto t) {
     // 自动推导类型
 }
+```

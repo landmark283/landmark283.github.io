@@ -71,7 +71,7 @@ public:
 <p>小偷又发现了一个新的可行窃的地区。这个地区只有一个入口，我们称之为 <code>root</code> 。</p>
 <p>除了 <code>root</code> 之外，每栋房子有且只有一个“父“房子与之相连。一番侦察之后，聪明的小偷意识到“这个地方的所有房屋的排列类似于一棵二叉树”。 如果 <strong>两个直接相连的房子在同一天晚上被打劫</strong> ，房屋将自动报警。</p>
 <p>给定二叉树的 <code>root</code> 。返回 <em><strong>在不触动警报的情况下</strong> ，小偷能够盗取的最高金额</em> 。</p>
-<p>&lt;img title="" src="file:///C:/Users/moon%20side/AppData/Roaming/marktext/images/2026-07-15-10-35-29-image.png" alt="" width="298"&gt;</p>
+<p><img src="/images/leetcode-house-robber.png" alt="打家劫舍的二叉树示意" loading="lazy"></p>
 <hr>
 <p>这个算法题的解决思路是基于动态规划的：</p>
 <p>考虑每个房间有两种状态：偷和不偷，分别计算出两种状态时，小偷在该房间级其所有子房间所能偷到的最多钱。这样从下往上递归，每次都是增加一个父节点去计算新的最大值，下方的子节点不会受到影响，就可以确保算法计算出的结果是正确的。</p>
@@ -101,9 +101,7 @@ public:
     int rob(TreeNode* root) {
         //由于这里两个输入一个是ture，一个是false，后续至少要重复算一次。实际上遍历
         //时候false和true取最大值也会导致重复计算
-        return max(rob_dp(root,false),rob_dp(root,right));
-    }
-};(root,right));
+        return max(rob_dp(root,false),rob_dp(root,true));
     }
 };</code></pre>
 <p>发现了重复计算之后，使用哈希表存放每个指针计算出来的结果，避免重复计算，大幅提升效率。以下代码通过（11ms）。</p>
@@ -151,7 +149,7 @@ public:
 <p>例题2</p>
 <p>二叉树中的 <strong>路径</strong> 被定义为一条节点序列，序列中每对相邻节点之间都存在一条边。同一个节点在一条路径序列中 <strong>至多出现一次</strong> 。该路径 <strong>至少包含一个</strong> 节点，且不一定经过根节点。</p>
 <p><strong>路径和</strong> 是路径中各节点值的总和。</p>
-<p>给你一个二叉树的根节点 <code>root</code> ，返回其 <strong>最大路径和</strong> 。<img src="C:\Users\moon%20side\AppData\Roaming\marktext\images\2026-07-15-11-25-15-image.png" alt="" loading="lazy"></p>
+<p>给你一个二叉树的根节点 <code>root</code> ，返回其 <strong>最大路径和</strong> 。<img src="/images/leetcode-max-path-sum.png" alt="最大路径和示意" loading="lazy"></p>
 <p>同样的动态规划思路：既然是一条路径，那么子节点就只能从左右子节点当中选一个，以此递归，递归的时候，我们只需要获取左右子节点的路径和即可。然后，因为不一定包括根节点，那么在每个子节点计算的时候，都把它当做是根节点计算一下数值，并且用这个数值来作为最大值。另外，路径是可以中断的，如果说某个子节点计算出来了，自己这条支路的路径和是负数，那么我们就把它置0，相当于不要它们了。</p>
 <pre><code class="language-cpp">class Solution {
 public:

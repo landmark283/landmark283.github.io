@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>建站记 · Landmark</title>
+<meta name="description" content="用 GitHub Pages 放一个个人主页：为什么选静态、它怎么工作、三步走完。">
+<link rel="canonical" href="https://landmark283.github.io/posts/hello.html">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+
+<header>
+  <nav class="nav" aria-label="主导航">
+    <a class="brand" href="/">Landmark</a>
+    <div class="navlinks">
+      <a href="/">首页</a>
+      <a href="/blog.html">文章</a>
+      <a href="https://github.com/landmark283">GitHub ↗</a>
+    </div>
+  </nav>
+</header>
+
+<main id="main" class="main">
+  <article class="article">
+    <h1>建站记：用 GitHub Pages 放一个个人主页</h1>
+    <p class="meta"><time datetime="2026-10-20">2026-10-20</time> · 建站</p>
+
+    <p>这个站点的全部内容，就是几个 HTML 文件加一份 CSS，放在一个叫 <code>landmark283.github.io</code> 的仓库里。没有数据库，没有服务器，也没有构建流程。</p>
+
+    <h2>为什么是静态的</h2>
+
+    <p>静态站点有个很朴素的优点：它不会坏。没有进程要重启，没有依赖要升级，也没有数据库哪天连不上。文件在那儿，页面就在那儿。代价是它做不了需要服务端的事——评论、登录、点赞，这些得另想办法（常见做法是接 <a href="https://giscus.app">giscus</a> 这类基于 GitHub Issues 的评论框）。</p>
+
+    <h2>GitHub Pages 到底做了什么</h2>
+
+    <p>它只做两件事：把你仓库里的文件当静态服务器发出去，以及替你的域名签一张 TLS 证书。页面怎么来的它不管——手写、脚本生成、用 Hugo 或 Astro 构建，都一样。</p>
+
+    <p>用户站的仓库名必须是 <code>&lt;用户名&gt;.github.io</code>，这样网址才是域名根路径。如果把站点放在普通项目仓库里，它会挂在 <code>/仓库名/</code> 下面，所有绝对路径都得跟着改，很麻烦。</p>
+
+    <h2>三步</h2>
+
+    <ol>
+      <li>建一个公开仓库，名字是 <code>landmark283.github.io</code>。</li>
+      <li>根目录放 <code>index.html</code>，再加一个空的 <code>.nojekyll</code>（有它，GitHub 才不会拿 Jekyll 去处理你的文件）。</li>
+      <li>Settings → Pages → Source 选 <code>main</code> 分支的 <code>/ (root)</code>，保存。</li>
+    </ol>
+
+    <p>一分钟左右，<code>https://landmark283.github.io</code> 就通了。之后每次 <code>git push</code> 都会自动重新发布。</p>
+
+    <blockquote>顺带一句：别为了开 Pages 把自己项目仓库改成公开。私有仓库在免费账户下确实不能开 Pages，但更稳妥的做法是另建一个公开仓库，只放构建好的静态产物。</blockquote>
+
+    <h2>以后想加文章</h2>
+
+    <p>复制一份 <code>posts/demo.html</code>，改名、改内容，然后在 <code>blog.html</code> 和首页的列表里各加一条。就这样，没有别的步骤。</p>
+
+    <a class="back" href="/blog.html">← 返回文章列表</a>
+  </article>
+</main>
+
+<footer>
+  <div class="foot">
+    <span>© 2026 Landmark</span>
+    <a href="mailto:hello@example.com">hello@example.com</a>
+  </div>
+</footer>
+</body>
+</html>

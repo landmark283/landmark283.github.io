@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>排版示例 · Landmark</title>
+<meta name="description" content="正文里各种元素长什么样：标题、列表、引用、代码块。">
+<link rel="canonical" href="https://landmark283.github.io/posts/demo.html">
+<link rel="icon" href="/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<a class="skip" href="#main">跳到正文</a>
+
+<header>
+  <nav class="nav" aria-label="主导航">
+    <a class="brand" href="/">Landmark</a>
+    <div class="navlinks">
+      <a href="/">首页</a>
+      <a href="/blog.html">文章</a>
+      <a href="https://github.com/landmark283">GitHub ↗</a>
+    </div>
+  </nav>
+</header>
+
+<main id="main" class="main">
+  <article class="article">
+    <h1>排版示例</h1>
+    <p class="meta"><time datetime="2026-10-19">2026-10-19</time> · 模板</p>
+
+    <p>这一页只是给我自己看的样板：把常用的元素摆一遍，写文章时照着改就行。看完可以删掉它，记得同时删掉 <code>blog.html</code> 和首页里的那两条链接。</p>
+
+    <h2>二级标题</h2>
+
+    <p>正文段落。行高 1.75，单行大约 62 个字符宽——这个宽度读起来不累。段落里可以有 <strong>加粗</strong>、<em>斜体</em>、<a href="/">链接</a>，以及行内代码 <code>git push</code>。</p>
+
+    <h2>列表</h2>
+
+    <ul>
+      <li>无序列表的第一项，写短一点</li>
+      <li>第二项，可以带 <code>代码</code></li>
+      <li>第三项</li>
+    </ul>
+
+    <ol>
+      <li>有序列表也一样</li>
+      <li>用来写步骤</li>
+    </ol>
+
+    <h2>引用</h2>
+
+    <blockquote>引用块用左侧一条细线标出来，颜色比正文浅。适合放别人说过的话，或者自己觉得值得单独拎出来的一句。</blockquote>
+
+    <h2>代码块</h2>
+
+    <pre><code>git add .
+git commit -m "add a new post"
+git push</code></pre>
+
+    <p>好了，就这些。剩下的靠内容本身。</p>
+
+    <a class="back" href="/blog.html">← 返回文章列表</a>
+  </article>
+</main>
+
+<footer>
+  <div class="foot">
+    <span>© 2026 Landmark</span>
+    <a href="mailto:hello@example.com">hello@example.com</a>
+  </div>
+</footer>
+</body>
+</html>

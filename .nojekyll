@@ -1,0 +1,8 @@
+站点结构：
+index.html      首页（姓名、简介、近况、最近文章）
+blog.html       文章列表
+posts/          每篇文章一个 html
+style.css       全站样式，配色在文件开头的 :root 里
+404.html        找不到页面时显示
+favicon.svg     浏览器标签页小图标
+.nojekyll       告诉 GitHub Pages 不要用 Jekyll 处理这个仓库

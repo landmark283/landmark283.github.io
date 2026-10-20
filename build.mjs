@@ -70,8 +70,8 @@ function inline(text) {
   // 图片  ![alt](src)
   s = s.replace(/!\[([^\]]*)\]\(([^)\s]+)\)/g, '<img src="$2" alt="$1" loading="lazy">');
 
-  // 链接  [text](url)
-  s = s.replace(/\[([^\]]+)\]\(([^)\s]+)\)/g, '<a href="$2">$1</a>');
+  // 链接  [text](url)（允许空文字，用来吞掉原文里的纯引用标记）
+  s = s.replace(/\[([^\]]*)\]\(([^)\s]+)\)/g, '<a href="$2">$1</a>');
 
   // 粗体、斜体
   s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');

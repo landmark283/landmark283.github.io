@@ -215,29 +215,25 @@ git push</code></pre>
 <p>在这种场景下就可以使用子模块来解决问题了：子模块会跟踪一个仓库，并且记录这个仓库的git 哈希标记，别人git clone了你的代码之后，再执行</p>
 <pre><code class="language-git">git submodule update --init --recursive</code></pre>
 <p>就可以自动拉取所有需要的子仓库了，并且拉取的版本是正确的。</p>
-<p>普通的嵌套 Git 仓库（gitlink）存在一个问题：主仓库只记录了子仓库的某个 commit ID，但<strong>不知道它的 URL 地址</strong>。其他人克隆主仓库时，子仓库文件夹是空的，无法获取内容[](<a href="https://stackoverflow.com/feeds/question/54897439#1">https://stackoverflow.com/feeds/question/54897439#1</a>)。</p>
-<p>而 Submodule 会在主仓库根目录生成一个 <code>.gitmodules</code> 文件，里面记录了每个子仓库的<strong>路径和 URL</strong>，这样就能实现自动拉取[](<a href="https://github.com/liyijuan/gitSubModule#1">https://github.com/liyijuan/gitSubModule#1</a>)[](<a href="https://guosy.blog.csdn.net/article/details/148177054">https://guosy.blog.csdn.net/article/details/148177054</a>)。</p>
+<p>普通的嵌套 Git 仓库（gitlink）存在一个问题：主仓库只记录了子仓库的某个 commit ID，但<strong>不知道它的 URL 地址</strong>。其他人克隆主仓库时，子仓库文件夹是空的，无法获取内容<a href="https://stackoverflow.com/feeds/question/54897439#1"></a>。</p>
+<p>而 Submodule 会在主仓库根目录生成一个 <code>.gitmodules</code> 文件，里面记录了每个子仓库的<strong>路径和 URL</strong>，这样就能实现自动拉取<a href="https://github.com/liyijuan/gitSubModule#1"></a><a href="https://guosy.blog.csdn.net/article/details/148177054"></a>。</p>
 <h3 id="关键配置步骤">关键配置步骤</h3>
 <h4 id="1-正确添加子仓库">1. 正确添加子仓库</h4>
 <p>在主仓库根目录执行：</p>
-<p>bash</p>
-<p>git submodule add &lt;子仓库的URL&gt; &lt;存放路径&gt;</p>
+<pre><code class="language-bash">git submodule add &lt;子仓库的URL&gt; &lt;存放路径&gt;</code></pre>
 <p>例如：</p>
-<p>bash</p>
-<p>git submodule add <a href="https://github.com/user/libfoo.git">https://github.com/user/libfoo.git</a> libs/libfoo</p>
-<p>执行后会产生两个变化[](<a href="https://github.com/liyijuan/gitSubModule#1">https://github.com/liyijuan/gitSubModule#1</a>)：</p>
+<pre><code class="language-bash">git submodule add https://github.com/user/libfoo.git libs/libfoo</code></pre>
+<p>执行后会产生两个变化<a href="https://github.com/liyijuan/gitSubModule#1"></a>：</p>
 <ul><li>在 <code>libs/libfoo</code> 目录下拉取子仓库的代码</li><li>在根目录生成 <code>.gitmodules</code> 文件，记录路径和 URL</li></ul>
 <p>提交并推送主仓库，让子模块配置生效。</p>
 <h4 id="2-提供一键安装的命令">2. 提供“一键安装”的命令</h4>
 <p>针对你的需求，有两种使用场景：</p>
 <p><strong>场景 A：用户首次克隆主仓库（一键获得所有代码）</strong></p>
-<p>直接让用户使用 <code>--recurse-submodules</code> 参数，Git 会自动递归拉取所有子模块[](<a href="https://coreui.io/answers/how-to-clone-repository-with-submodules-in-git/">https://coreui.io/answers/how-to-clone-repository-with-submodules-in-git/</a>)[](<a href="https://cloud.tencent.com.cn/developer/article/2143377?from=15425#1#1">https://cloud.tencent.com.cn/developer/article/2143377?from=15425#1#1</a>)：</p>
-<p>bash</p>
-<p>git clone --recurse-submodules &lt;主仓库URL&gt;</p>
+<p>直接让用户使用 <code>--recurse-submodules</code> 参数，Git 会自动递归拉取所有子模块<a href="https://coreui.io/answers/how-to-clone-repository-with-submodules-in-git/"></a><a href="https://cloud.tencent.com.cn/developer/article/2143377?from=15425#1#1"></a>：</p>
+<pre><code class="language-bash">git clone --recurse-submodules &lt;主仓库URL&gt;</code></pre>
 <p><strong>场景 B：用户已经克隆了主仓库，但子仓库是空的</strong></p>
-<p>提供以下命令给用户，在主仓库根目录执行即可补全所有子仓库[](<a href="https://coreui.io/answers/how-to-clone-repository-with-submodules-in-git/">https://coreui.io/answers/how-to-clone-repository-with-submodules-in-git/</a>)[](<a href="https://guosy.blog.csdn.net/article/details/148177054">https://guosy.blog.csdn.net/article/details/148177054</a>)：</p>
-<p>bash</p>
-<p>git submodule update --init --recursive</p>
+<p>提供以下命令给用户，在主仓库根目录执行即可补全所有子仓库<a href="https://coreui.io/answers/how-to-clone-repository-with-submodules-in-git/"></a><a href="https://guosy.blog.csdn.net/article/details/148177054"></a>：</p>
+<pre><code class="language-bash">git submodule update --init --recursive</code></pre>
 <p>这个命令的作用是：初始化 <code>.gitmodules</code> 中定义的子模块，然后递归拉取所有嵌套的子模块。</p>
 <hr>
 <h1 id="git-worktree-使用总结">Git Worktree 使用总结</h1>
@@ -248,56 +244,84 @@ git push</code></pre>
 <hr>
 <h2 id="二基本命令">二、基本命令</h2>
 <h3 id="创建-worktree">创建 worktree</h3>
-<p>bash</p>
-<h1 id="创建新分支并检出">创建新分支并检出</h1>
-<p>git worktree add ../project-agent1 -b agent1/feature</p>
-<h1 id="检出已存在的分支">检出已存在的分支</h1>
-<p>git worktree add ../project-agent2 agent2/existing-branch</p>
-<h1 id="基于某次提交创建detached-head常用于只读查看">基于某次提交创建（detached HEAD，常用于只读查看）</h1>
-<p>git worktree add ../project-review HEAD~3</p>
-<h1 id="从远程分支创建并跟踪">从远程分支创建并跟踪</h1>
-<p>git worktree add ../project-fix origin/fix-branch</p>
+<pre><code class="language-bash"># 创建新分支并检出
+
+git worktree add ../project-agent1 -b agent1/feature
+
+# 检出已存在的分支
+
+git worktree add ../project-agent2 agent2/existing-branch
+
+# 基于某次提交创建（detached HEAD，常用于只读查看）
+
+git worktree add ../project-review HEAD~3
+
+# 从远程分支创建并跟踪
+
+git worktree add ../project-fix origin/fix-branch</code></pre>
 <h3 id="查看">查看</h3>
-<p>bash</p>
-<p>git worktree list</p>
-<h1 id="输出">输出：</h1>
-<h1 id="codemyproject----------abc1234-main">/code/myproject          abc1234 [main]</h1>
-<h1 id="codemyproject-agent1---def5678-agent1feature">/code/myproject-agent1   def5678 [agent1/feature]</h1>
-<h1 id="codemyproject-agent2---ghi9012-agent2fix">/code/myproject-agent2   ghi9012 [agent2/fix]</h1>
+<pre><code class="language-bash">git worktree list
+
+# 输出：
+
+# /code/myproject          abc1234 [main]
+
+# /code/myproject-agent1   def5678 [agent1/feature]
+
+# /code/myproject-agent2   ghi9012 [agent2/fix]</code></pre>
 <h3 id="删除">删除</h3>
-<p>bash</p>
-<h1 id="规范删除要求工作区干净">规范删除（要求工作区干净）</h1>
-<p>git worktree remove ../project-agent1</p>
-<h1 id="强制删除有未提交改动时">强制删除（有未提交改动时）</h1>
-<p>git worktree remove --force ../project-agent1</p>
-<h1 id="目录已被手动-rm清理残留元数据">目录已被手动 rm，清理残留元数据</h1>
-<p>git worktree prune</p>
+<pre><code class="language-bash"># 规范删除（要求工作区干净）
+
+git worktree remove ../project-agent1
+
+# 强制删除（有未提交改动时）
+
+git worktree remove --force ../project-agent1
+
+# 目录已被手动 rm，清理残留元数据
+
+git worktree prune</code></pre>
 <h3 id="移动">移动</h3>
-<p>bash</p>
-<p>git worktree move ../old-path ../new-path</p>
+<pre><code class="language-bash">git worktree move ../old-path ../new-path</code></pre>
 <hr>
 <h2 id="三日常工作流">三、日常工作流</h2>
-<p>bash</p>
-<h1 id="1-主仓库创建-worktree">1. 主仓库创建 worktree</h1>
-<p>cd /code/myproject git worktree add ../myproject-agent1 -b agent1/feature git worktree add ../myproject-agent2 -b agent2/fix</p>
-<h1 id="2-在各-worktree-里独立开发">2. 在各 worktree 里独立开发</h1>
-<p>cd ../myproject-agent1</p>
-<h1 id="编辑测试提交">... 编辑、测试、提交 ...</h1>
-<p>git add . git commit -m "feature done" cd ../myproject-agent2</p>
-<h1 id="编辑测试提交-1">... 编辑、测试、提交 ...</h1>
-<p>git commit -am "fix done"</p>
-<h1 id="3-回到主仓库合并">3. 回到主仓库合并</h1>
-<p>cd /code/myproject git merge agent1/feature git merge agent2/fix</p>
-<h1 id="4-清理">4. 清理</h1>
-<p>git worktree remove ../myproject-agent1 git worktree remove ../myproject-agent2</p>
+<pre><code class="language-bash"># 1. 主仓库创建 worktree
+
+cd /code/myproject
+git worktree add ../myproject-agent1 -b agent1/feature
+git worktree add ../myproject-agent2 -b agent2/fix
+
+# 2. 在各 worktree 里独立开发
+
+cd ../myproject-agent1
+
+# ... 编辑、测试、提交 ...
+
+git add .
+git commit -m "feature done"
+cd ../myproject-agent2
+
+# ... 编辑、测试、提交 ...
+
+git commit -am "fix done"
+
+# 3. 回到主仓库合并
+
+cd /code/myproject
+git merge agent1/feature
+git merge agent2/fix
+
+# 4. 清理
+
+git worktree remove ../myproject-agent1
+git worktree remove ../myproject-agent2</code></pre>
 <hr>
 <h2 id="四共享与隔离对照表">四、共享与隔离对照表</h2>
 <div class="table-wrap"><table><thead><tr><th>内容</th><th>共享？</th><th>说明</th></tr></thead><tbody><tr><td><code>.git</code> 对象库</td><td>✅</td><td>只有一份，提交立即可见</td></tr><tr><td>分支引用</td><td>✅</td><td>一份，所有 worktree 看到相同分支列表</td></tr><tr><td>提交历史</td><td>✅</td><td>在主仓库可 <code>git log agent1/feature</code></td></tr><tr><td>工作区文件</td><td>❌</td><td>各一份，互不影响</td></tr><tr><td>暂存区 index</td><td>❌</td><td>各自独立</td></tr><tr><td>HEAD</td><td>❌</td><td>各指向自己检出的分支</td></tr><tr><td>远程操作</td><td>✅</td><td>push/fetch 影响同一仓库</td></tr></tbody></table></div>
 <hr>
 <h2 id="五关键规则与坑">五、关键规则与坑</h2>
 <p><strong>1. 同一分支不能在两个 worktree 同时检出</strong></p>
-<p>bash</p>
-<p>fatal: 'main' is already checked out at '/code/myproject'</p>
+<pre><code class="language-bash">fatal: 'main' is already checked out at '/code/myproject'</code></pre>
 <p>每个 worktree 必须对应不同分支（或 detached HEAD）。</p>
 <p><strong>2. 提交不会自动同步到其他工作区文件</strong></p>
 <p>Agent 提交后，主工作区文件<strong>不变</strong>。要看到改动必须 <code>merge</code> 或 <code>checkout</code>。</p>
@@ -309,14 +333,16 @@ git push</code></pre>
 <p><strong>5. 别用 <code>rm -rf</code> 删 worktree 目录</strong></p>
 <p>会留下元数据垃圾，虽可用 <code>git worktree prune</code> 清理，但不如规范操作省事。</p>
 <p><strong>6. submodule 需在每个 worktree 单独初始化</strong></p>
-<p>bash</p>
-<p>git submodule update --init --recursive</p>
+<pre><code class="language-bash">git submodule update --init --recursive</code></pre>
 <p><strong>7. 依赖需在每个 worktree 单独安装</strong></p>
 <p><code>node_modules</code>、<code>venv</code> 等不共享，各装各的。</p>
 <hr>
 <h2 id="六多-agent-并行开发场景">六、多 Agent 并行开发场景</h2>
-<p>text</p>
-<p>/code/ ├── myproject/          # 主工作树（main），最终合并处├── agent1-worktree/    # Agent 1 改登录├── agent2-worktree/    # Agent 2 修安全└── agent3-worktree/    # Agent 3 写文档</p>
+<pre><code class="language-text">/code/
+├── myproject/          # 主工作树（main），最终合并处
+├── agent1-worktree/    # Agent 1 改登录
+├── agent2-worktree/    # Agent 2 修安全
+└── agent3-worktree/    # Agent 3 写文档</code></pre>
 <p>每个 Agent 看到完整项目，正常编辑、跑测试、提交。它们改的是各自独立的工作区文件，底层共享同一 Git 历史。最后在主仓库 <code>git merge</code> 逐个合并。</p>
 <p><strong>收益</strong>：不用 stash、不用切分支、不用等别人、改动互不污染。</p>
 <hr>

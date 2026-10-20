@@ -361,15 +361,15 @@ git submodule update --init --recursive
 
 在主仓库根目录执行：
 
-bash
-
+```bash
 git submodule add <子仓库的URL> <存放路径>
+```
 
 例如：
 
-bash
-
+```bash
 git submodule add https://github.com/user/libfoo.git libs/libfoo
+```
 
 执行后会产生两个变化[](https://github.com/liyijuan/gitSubModule#1)：
 
@@ -387,17 +387,17 @@ git submodule add https://github.com/user/libfoo.git libs/libfoo
 
 直接让用户使用 `--recurse-submodules` 参数，Git 会自动递归拉取所有子模块[](https://coreui.io/answers/how-to-clone-repository-with-submodules-in-git/)[](https://cloud.tencent.com.cn/developer/article/2143377?from=15425#1#1)：
 
-bash
-
+```bash
 git clone --recurse-submodules <主仓库URL>
+```
 
 **场景 B：用户已经克隆了主仓库，但子仓库是空的**
 
 提供以下命令给用户，在主仓库根目录执行即可补全所有子仓库[](https://coreui.io/answers/how-to-clone-repository-with-submodules-in-git/)[](https://guosy.blog.csdn.net/article/details/148177054)：
 
-bash
-
+```bash
 git submodule update --init --recursive
+```
 
 这个命令的作用是：初始化 `.gitmodules` 中定义的子模块，然后递归拉取所有嵌套的子模块。
 
@@ -421,8 +421,7 @@ Git Worktree 让你在**同一个仓库**上拥有**多个工作目录**，每�
 
 ### 创建 worktree
 
-bash
-
+```bash
 # 创建新分支并检出
 
 git worktree add ../project-agent1 -b agent1/feature
@@ -438,11 +437,11 @@ git worktree add ../project-review HEAD~3
 # 从远程分支创建并跟踪
 
 git worktree add ../project-fix origin/fix-branch
+```
 
 ### 查看
 
-bash
-
+```bash
 git worktree list
 
 # 输出：
@@ -452,11 +451,11 @@ git worktree list
 # /code/myproject-agent1   def5678 [agent1/feature]
 
 # /code/myproject-agent2   ghi9012 [agent2/fix]
+```
 
 ### 删除
 
-bash
-
+```bash
 # 规范删除（要求工作区干净）
 
 git worktree remove ../project-agent1
@@ -468,19 +467,19 @@ git worktree remove --force ../project-agent1
 # 目录已被手动 rm，清理残留元数据
 
 git worktree prune
+```
 
 ### 移动
 
-bash
-
+```bash
 git worktree move ../old-path ../new-path
+```
 
 ---
 
 ## 三、日常工作流
 
-bash
-
+```bash
 # 1. 主仓库创建 worktree
 
 cd /code/myproject
@@ -511,6 +510,7 @@ git merge agent2/fix
 
 git worktree remove ../myproject-agent1
 git worktree remove ../myproject-agent2
+```
 
 ---
 
@@ -532,9 +532,9 @@ git worktree remove ../myproject-agent2
 
 **1. 同一分支不能在两个 worktree 同时检出**
 
-bash
-
+```bash
 fatal: 'main' is already checked out at '/code/myproject'
+```
 
 每个 worktree 必须对应不同分支（或 detached HEAD）。
 
@@ -560,9 +560,9 @@ Agent 提交后，主工作区文件**不变**。要看到改动必须 `merge` �
 
 **6. submodule 需在每个 worktree 单独初始化**
 
-bash
-
+```bash
 git submodule update --init --recursive
+```
 
 **7. 依赖需在每个 worktree 单独安装**
 
@@ -572,13 +572,13 @@ git submodule update --init --recursive
 
 ## 六、多 Agent 并行开发场景
 
-text
-
+```text
 /code/
 ├── myproject/          # 主工作树（main），最终合并处
 ├── agent1-worktree/    # Agent 1 改登录
 ├── agent2-worktree/    # Agent 2 修安全
 └── agent3-worktree/    # Agent 3 写文档
+```
 
 每个 Agent 看到完整项目，正常编辑、跑测试、提交。它们改的是各自独立的工作区文件，底层共享同一 Git 历史。最后在主仓库 `git merge` 逐个合并。
 
